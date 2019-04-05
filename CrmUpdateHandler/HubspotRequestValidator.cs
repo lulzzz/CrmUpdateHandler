@@ -16,6 +16,7 @@ namespace CrmUpdateHandler
         /// <returns></returns>
         public static bool Validate(HttpRequest req, string requestBody)
         {
+            var validationHeader = req.Headers["X-HubSpot-Signature"];
             return true;
         }
     }
