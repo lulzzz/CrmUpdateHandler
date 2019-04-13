@@ -30,7 +30,17 @@ namespace CrmUpdateHandler
     /// </summary>
     public class NewContactPayload
     {
-        public string contactId { get; set; }
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="vid">the 4-digit ID from Hubspot</param>
+        public NewContactPayload(string vid)
+        {
+            // Pad the contact id with leading 0s
+            this.contactId = vid.PadLeft(6, '0');
+        }
+
+        public string contactId { get; private set; }
 
         public string firstName { get; set; }
 

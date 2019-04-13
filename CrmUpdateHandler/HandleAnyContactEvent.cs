@@ -13,6 +13,19 @@ using System.Collections.Generic;
 
 namespace CrmUpdateHandler
 {
+    /*
+     * HAIL, PERSON FROM THE FUTURE
+     * 
+     * This is some of the first code written for Starling Energy in its earliest days. There is no budget, no time. So whatever
+     * tests are here are urgent necessities, whatever unchecked variables and stub functions you find are just technical debt
+     * deliberately and (mostly) consciously incurred to get functionality out the door. There were no resources to improve test
+     * coverage, set up automated deployment, etc. So please be forgiving and leave it better than you found it.
+     * 
+     * Mike Wiese, April 2019
+     * 
+     */
+
+
     /// <summary>
     /// This is the handler for the Hubspot webhooks raised whenever a new Contact is created or changed.
     /// It gathers all the details for the new or updated contact(s) and raises an event to EventGrid from
@@ -22,7 +35,35 @@ namespace CrmUpdateHandler
     /// </remarks>
     public static class HandleAnyContactEvent
     {
+        // Singleton instances - makes the Azure functions more scalable.
+        private static readonly HttpClient newContactHttpClient;
+        private static readonly HttpClient updatedContactHttpClient;
+        private static readonly HttpClient hubspotHttpClient;
 
+        static HandleAnyContactEvent()
+        {
+            // See https://docs.microsoft.com/en-us/azure/architecture/antipatterns/improper-instantiation/
+            // for an explanation as to why tis is better than 'using (var httplient = new HttpClient()) {}"
+            newContactHttpClient = new HttpClient();
+            updatedContactHttpClient = new HttpClient();
+            hubspotHttpClient = new HttpClient();
+
+            // Set up the header required to invoke an EventGrid Topic - exactly once, for the lifetime of the Azure Function
+            var newCrmContactTopicKey = Environment.GetEnvironmentVariable("NewCrmContactTopicKey", EnvironmentVariableTarget.Process);
+            var updatedCrmContactTopicKey = Environment.GetEnvironmentVariable("UpdatedCrmContactTopicKey", EnvironmentVariableTarget.Process);
+
+            newContactHttpClient.DefaultRequestHeaders.Add("aeg-sas-key", newCrmContactTopicKey);
+            updatedContactHttpClient.DefaultRequestHeaders.Add("aeg-sas-key", updatedCrmContactTopicKey);
+
+        }
+
+
+        /// <summary>
+        /// The entry point into the function
+        /// </summary>
+        /// <param name="req"></param>
+        /// <param name="log"></param>
+        /// <returns></returns>
         [FunctionName("HandleAnyContactEvent")]
         public static async Task<IActionResult> Run(
             [HttpTrigger(AuthorizationLevel.Anonymous, "get", "post", Route = null)] HttpRequest req,
@@ -85,8 +126,16 @@ namespace CrmUpdateHandler
             //"attemptNumber":0}
             //]
 
-            var validationHeader = req.Headers["X-HubSpot-Signature"];
-            log.LogInformation("validationHeader: {0}", validationHeader);
+            Microsoft.Extensions.Primitives.StringValues validationHeader;
+            if (req.Headers.TryGetValue("X-HubSpot-Signature", out validationHeader))
+            {
+                log.LogInformation("validationHeader: {0}", validationHeader);
+            }
+            else
+            {
+                log.LogWarning("X-HubSpot-Signature not present");
+            }
+
 
             var hapikey = Environment.GetEnvironmentVariable("hapikey", EnvironmentVariableTarget.Process);
 
@@ -107,16 +156,20 @@ namespace CrmUpdateHandler
                 {
                     string objectId = contactEvent?.objectId;
                     string eventId = contactEvent?.eventId;
+                    string propertyName = contactEvent?.propertyName;
+                    string propertyValue = contactEvent?.propertyValue;
                     string subscriptionType = contactEvent?.subscriptionType;
+                    string attemptNumber = contactEvent?.attemptNumber;
+                    log.LogInformation("Attempt number {0}", attemptNumber);
 
                     switch (subscriptionType)
                     {
                         case "contact.creation":
                             newContactIds.Add(objectId);
-                            curatedEvents.Add(new CuratedHubspotEvent(objectId, eventId, true));
+                            curatedEvents.Add(new CuratedHubspotEvent(objectId, eventId));
                             break;
                         case "contact.propertyChange":
-                            curatedEvents.Add(new CuratedHubspotEvent(objectId, eventId, false));
+                            curatedEvents.Add(new CuratedHubspotEvent(objectId, eventId, propertyName, propertyValue));
                             break;
                         default:
                             break;
@@ -129,54 +182,55 @@ namespace CrmUpdateHandler
                 }
 
                 // Now we've tidied things up and the contacts are now unique, we can reach back into HubSpot to fetch the details of the contacts
-                using (var client = new HttpClient())
+                // TODO: Look into sharing a static HttpClient instance across all functions, as per https://docs.microsoft.com/en-us/azure/azure-functions/manage-connections
+                // The below is an antipattern, it can be fixed by making HttpClient a singleton as per https://docs.microsoft.com/en-us/azure/architecture/antipatterns/improper-instantiation/
+                foreach (var contactEvent in curatedEvents)
                 {
-                    foreach (var contactEvent in curatedEvents)
+                    string objectId = contactEvent.Vid;
+
+                    // GET /contacts/v1/contact/vid/:vid/profile
+                    var url = string.Format($"https://api.hubapi.com/contacts/v1/contact/vid/{objectId}/profile?hapikey={hapikey}");
+                    log.LogInformation("url: {0}", url);
+
+                    NewContactEvent newContactEvent = null;
+                    UpdatedContactEvent updatedContactEvent = null;
+
+                    // Go get the contact from HubSpot
+                    HttpResponseMessage response = await hubspotHttpClient.GetAsync(url);
+                    HttpContent content = response.Content;
+
+                    log.LogInformation("Response StatusCode from contact retrieval: " + (int)response.StatusCode);
+
+                    // Check Status Code. If we got the Contact OK, then raise the appropriate event.
+                    if (response.StatusCode == HttpStatusCode.OK)
                     {
-                        string objectId = contactEvent.Vid;
+                        // ... Read the string.
+                        string resultText = await content.ReadAsStringAsync();
+                        //log.LogInformation(resultText);
 
-                        // GET /contacts/v1/contact/vid/:vid/profile
-                        var url = string.Format($"https://api.hubapi.com/contacts/v1/contact/vid/{objectId}/profile?hapikey={hapikey}");
-                        log.LogInformation("url: {0}", url);
-
-                        NewContactEvent newContactEvent = null;
-                        UpdatedContactEvent updatedContactEvent = null;
-
-                        // Go get the contact from HubSpot, including all line items
-                        HttpResponseMessage response = await client.GetAsync(url);
-                        HttpContent content = response.Content;
-
-                        log.LogInformation("Response StatusCode from contact retrieval: " + (int)response.StatusCode);
-
-                        // Check Status Code. If we got the Contact OK, then raise the appropriate event.
-                        if (response.StatusCode == HttpStatusCode.OK)
+                        if (contactEvent.IsNew)
                         {
-                            // ... Read the string.
-                            string resultText = await content.ReadAsStringAsync();
-                            //log.LogInformation(resultText);
-
-                            if (contactEvent.IsNew)
-                            {
-                                // Extract some details of the contact, to send to Event Grid
-                                newContactEvent = ConvertJsonToNewContactInfo(resultText, contactEvent.EventId);
-                                newContacts.Add(newContactEvent);
-                            } else
-                            {
-                                updatedContactEvent = ConvertJsonToUpdatedContactInfo(resultText, contactEvent.EventId);
-                                updatedContacts.Add(updatedContactEvent);
-                            }
+                            // Extract some details of the contact, to send to Event Grid
+                            newContactEvent = ConvertJsonToNewContactInfo(resultText, contactEvent.EventId);
+                            newContacts.Add(newContactEvent);
                         }
                         else
                         {
-                            log.LogError("Error: HTTP {0} {1} ", (int)response.StatusCode, response.StatusCode);
-                            log.LogError("Contact ID: {0} ", objectId);
-                            string resultText = await content.ReadAsStringAsync();
-                            log.LogInformation(resultText);
-                            log.LogInformation("Original Request Body:");
-                            log.LogInformation(requestBody);
+                            updatedContactEvent = ConvertJsonToUpdatedContactInfo(resultText, contactEvent.EventId, contactEvent.PropertyName, contactEvent.PropertyValue);
+                            updatedContacts.Add(updatedContactEvent);
                         }
                     }
+                    else
+                    {
+                        log.LogError("Error: HTTP {0} {1} ", (int)response.StatusCode, response.StatusCode);
+                        log.LogError("Contact ID: {0} ", objectId);
+                        string resultText = await content.ReadAsStringAsync();
+                        log.LogInformation(resultText);
+                        log.LogInformation("Original Request Body:");
+                        log.LogInformation(requestBody);
+                    }
                 }
+
 
 
                 // With the filtering done, now we raise separate events for each new and updated contact.
@@ -186,22 +240,22 @@ namespace CrmUpdateHandler
                 // Pass updated contacts to the UpdatedCrmContact topic of the Event Grid
                 if (updatedContacts.Count > 0)
                 {
-                    log.LogInformation("We got {0} updated contact to pass to the event grid", updatedContacts.Count);
-                    var eventGridHeaderValue = Environment.GetEnvironmentVariable("UpdatedCrmContactNameTopicKey", EnvironmentVariableTarget.Process);
-                    var eventGridTopicEndpoint = Environment.GetEnvironmentVariable("UpdatedCrmContactNameTopicEndpoint", EnvironmentVariableTarget.Process);
+                    log.LogInformation("We got {0} updated contacts to pass to the event grid", updatedContacts.Count);
+                    var eventGridTopicEndpoint = Environment.GetEnvironmentVariable("UpdatedCrmContactTopicEndpoint", EnvironmentVariableTarget.Process);
 
-                    using (var eventGridclient = new HttpClient())
+                    log.LogInformation(eventGridTopicEndpoint);
+                    log.LogInformation("Contact {0} ({1} {2}) updated {3}", updatedContacts[0].data.contactId, updatedContacts[0].data.firstName, updatedContacts[0].data.lastName, updatedContacts[0].eventType);
+                    log.LogInformation(JsonConvert.SerializeObject(updatedContacts));
+
+                    var response = await updatedContactHttpClient.PostAsJsonAsync<List<UpdatedContactEvent>>(eventGridTopicEndpoint, updatedContacts);
+                    HttpContent content = response.Content;
+                    log.LogInformation(eventGridTopicEndpoint);
+
+                    if (response.StatusCode != HttpStatusCode.OK)
                     {
-                        eventGridclient.DefaultRequestHeaders.Add("aeg-sas-key", eventGridHeaderValue);
-                        var response = await eventGridclient.PostAsJsonAsync<List<UpdatedContactEvent>>(eventGridTopicEndpoint, updatedContacts);
-                        HttpContent content = response.Content;
-
-                        if (response.StatusCode != HttpStatusCode.OK)
-                        {
-                            log.LogError("Error: HTTP {0} {1} ", (int)response.StatusCode, response.StatusCode);
-                            string resultText = await content.ReadAsStringAsync();
-                            log.LogInformation(resultText);
-                        }
+                        log.LogError("Error: HTTP {0} {1} ", (int)response.StatusCode, response.StatusCode);
+                        string resultText = await content.ReadAsStringAsync();
+                        log.LogInformation(resultText);
                     }
                 }                
                 
@@ -209,24 +263,20 @@ namespace CrmUpdateHandler
                 if (newContacts.Count > 0)
                 {
                     log.LogInformation("We got {0} new contacts to pass to the event grid", newContacts.Count);
-                    var eventGridHeaderValue = Environment.GetEnvironmentVariable("NewCrmContactTopicKey", EnvironmentVariableTarget.Process);
-                    var eventGridTopicEndpoint = Environment.GetEnvironmentVariable("NewCrmContactNameTopicEndpoint", EnvironmentVariableTarget.Process);
+                    var eventGridTopicEndpoint = Environment.GetEnvironmentVariable("NewCrmContactTopicEndpoint", EnvironmentVariableTarget.Process);
 
-                    using (var eventGridclient = new HttpClient())
+                    log.LogInformation(eventGridTopicEndpoint);
+                    log.LogInformation("Sending contact {0}: {1} {2}", newContacts[0].data.contactId, newContacts[0].data.firstName, newContacts[0].data.lastName);
+                    log.LogInformation(JsonConvert.SerializeObject(newContacts));
+
+                    var response = await newContactHttpClient.PostAsJsonAsync<List<NewContactEvent>>(eventGridTopicEndpoint, newContacts);
+                    HttpContent content = response.Content;
+                    
+                    if (response.StatusCode != HttpStatusCode.OK)
                     {
-                        eventGridclient.DefaultRequestHeaders.Add("aeg-sas-key", eventGridHeaderValue);
-                        var response = await eventGridclient.PostAsJsonAsync<List<NewContactEvent>>(eventGridTopicEndpoint, newContacts);
-                        HttpContent content = response.Content;
-                        string debugText = await content.ReadAsStringAsync();
-                        log.LogInformation(eventGridTopicEndpoint);
-                        log.LogInformation(debugText);
-
-                        if (response.StatusCode != HttpStatusCode.OK)
-                        {
-                            log.LogError("Error: HTTP {0} {1} ", (int)response.StatusCode, response.StatusCode);
-                            string resultText = await content.ReadAsStringAsync();
-                            log.LogInformation(resultText);
-                        }
+                        log.LogError("Error: HTTP {0} {1} ", (int)response.StatusCode, response.StatusCode);
+                        string resultText = await content.ReadAsStringAsync();
+                        log.LogInformation(resultText);
                     }
                 }
             }
@@ -249,23 +299,33 @@ namespace CrmUpdateHandler
         public static NewContactEvent ConvertJsonToNewContactInfo(string text, string eventId)
         {
             dynamic contact = ConvertStringToJson(text);
-            var newContactPayload = new NewContactPayload
+
+            var firstName = contact.properties.firstname?.value;
+            var lastName = contact.properties.lastname?.value;
+            var phone = contact.properties.phone?.value;
+            var email = contact.properties.email?.value;
+            var customerNameOnBill = contact.properties.customer_name_on_bill?.value;
+            var meterNumber = contact.properties.meter_number?.value;
+            var synergyAccountNumber = contact.properties.synergy_account_no?.value;
+            var supplyAddress = contact.properties.supply_address?.value;
+            var jobTitle = contact.properties.jobtitle?.value;
+            var restUri = contact["profile-url"].ToString();
+
+            var newContactPayload = new NewContactPayload(Convert.ToString(contact.vid))
             {
-                
-                contactId = contact.vid,
-                firstName = contact.properties.firstname.value,
-                lastName = contact.properties.lastname.value,
-                phone = contact.properties.phone.value,
-                email = contact.properties.email.value,
-                customerNameOnBill = contact.properties.customer_name_on_bill.value,
-                restUri = contact["profile-url"].ToString()
+                firstName = firstName,
+                lastName = lastName,
+                phone = phone,
+                email = email,
+                customerNameOnBill = customerNameOnBill,
+                restUri = restUri
             };
 
             var retval = new NewContactEvent
             {
                 id = eventId,
-                eventType = "Starling.Crm.ContactCreated",
-                subject = "Contacts",
+                eventType = "NewContact",
+                subject = "Starling.Crm.ContactCreated",
                 eventTime = DateTime.UtcNow,
                 data = newContactPayload
             };
@@ -276,29 +336,121 @@ namespace CrmUpdateHandler
         /// <summary>
         /// Convert the Contact structure that we get from Hubspot into the format that we use for Event Grid
         /// </summary>
-        /// <param name="text"></param>
+        /// <param name="wholeContactText"></param>
         /// <param name="eventId"></param>
         /// <returns></returns>
-        public static UpdatedContactEvent ConvertJsonToUpdatedContactInfo(string text, string eventId)
+        public static UpdatedContactEvent ConvertJsonToUpdatedContactInfo(string wholeContactText, string eventId, string propertyName, string newValue)
         {
-            dynamic contact = ConvertStringToJson(text);
-            var updatedContactPayload = new UpdatedContactPayload
+            dynamic contact = ConvertStringToJson(wholeContactText);
+
+            var firstName = contact.properties.firstname?.value;
+            var lastName = contact.properties.lastname?.value;
+            var phone = contact.properties.phone?.value;
+            var email = contact.properties.email?.value;
+            var customerNameOnBill = contact.properties.customer_name_on_bill?.value;
+            var meterNumber = contact.properties.meter_number?.value;
+            var synergyAccountNumber = contact.properties.synergy_account_no?.value;
+            var supplyAddress = contact.properties.supply_address?.value;
+            var jobTitle = contact.properties.jobtitle?.value;
+            var restUri = contact["profile-url"].ToString();
+
+            var oldFirstName = firstName;
+            var oldLastName = lastName;
+            var oldPhone = phone;
+            var oldEmail = email;
+            var oldCustomerNameOnBill = customerNameOnBill;
+            var oldMeterNumber = meterNumber;
+            var oldSynergyAccountNumber = contact.properties.synergy_account_no?.versions[0].value;
+            var oldSupplyAddress = contact.properties.supply_address?.versions[0].value;
+            var oldJobTitle = contact.properties.jobtitle?.versions[0].value;
+
+            if (string.IsNullOrEmpty(propertyName))
             {
-                contactId = contact.vid,
-                firstName = contact.properties.firstname.value,
-                lastName = contact.properties.lastname.value,
-                phone = contact.properties.phone.value,
-                email = contact.properties.email.value,
-                customerNameOnBill = contact.properties.customer_name_on_bill.value,
-                restUri = contact["profile-url"].ToString()
+                return null;
+            }
+
+            // The Event Type can be used in the Azure Subscription-configuration UI to trigger only on certain types of changes
+            string eventTypeName = "Other";
+            switch (propertyName)
+            {
+                case "firstname":
+                    oldFirstName = GetPreviousValue(contact.properties.firstname);
+                    eventTypeName = "Name";
+                    break;
+                case "lastname":
+                    oldLastName = GetPreviousValue(contact.properties.lastname);
+                    eventTypeName = "Name";
+                    break;
+                case "phone":
+                    eventTypeName = "Phone";
+                    oldPhone = GetPreviousValue(contact.properties.phone);
+                    break;
+                case "email":
+                    eventTypeName = "Email";
+                    oldEmail = GetPreviousValue(contact.properties.email);
+                    break;
+                case "customer_name_on_bill":
+                    eventTypeName = "CustomerNameOnBill";
+                    oldCustomerNameOnBill = GetPreviousValue(contact.properties.customer_name_on_bill);
+                    break;
+                case "meter_number":
+                    eventTypeName = "MeterNumber";
+                    oldMeterNumber = GetPreviousValue(contact.properties.meter_number);
+                    break;
+                case "synergy_account_no":
+                    eventTypeName = "SynergyAccountNo";
+                    oldSynergyAccountNumber = GetPreviousValue(contact.properties.synergy_account_no);
+                    break;
+                case "supply_address":
+                    eventTypeName = "SupplyAddress";
+                    oldSupplyAddress = GetPreviousValue(contact.properties.supply_address);
+                    break;
+                case "jobtitle":
+                    eventTypeName = "JobTitle";
+                    oldJobTitle = GetPreviousValue(contact.properties.jobtitle);
+                    break;
+                default:
+                    break;
+            }
+
+            var updatedContactPayload = new UpdatedContactPayload(Convert.ToString(contact.vid))
+            {
+                firstName = firstName,
+                oldFirstName = oldFirstName,
+
+                lastName = lastName,
+                oldLastName = oldLastName,
+
+                phone = phone,
+                oldPhone = oldPhone,
+
+                email = email,
+                oldEmail = oldEmail,
+
+                customerNameOnBill = customerNameOnBill,
+                oldCustomerNameOnBill = oldCustomerNameOnBill,
+
+                meterNumber = meterNumber,
+                oldMeterNumber = oldMeterNumber,
+
+                synergyAccountNumber = synergyAccountNumber,
+                oldSynergyAccountNumber = oldSynergyAccountNumber,
+
+                supplyAddress = supplyAddress,
+                oldSupplyAddress = oldSupplyAddress,
+
+                jobTitle = jobTitle,
+                oldJobTitle = oldJobTitle,
+
+                restUri = restUri
             };
 
 
             var retval = new UpdatedContactEvent
             {
                 id = eventId,
-                eventType = "Starling.Crm.ContactUpdated",
-                subject = "Contacts",
+                eventType = eventTypeName,
+                subject = "Starling.Crm.ContactUpdated",
                 eventTime = DateTime.UtcNow,
                 data = updatedContactPayload
             };
@@ -307,10 +459,23 @@ namespace CrmUpdateHandler
         }
 
 
-        public static dynamic ConvertStringToJson(string text)
+        internal static dynamic ConvertStringToJson(string text)
         {
-            dynamic orderJson = JsonConvert.DeserializeObject(text);
-            return orderJson;
+            dynamic json = JsonConvert.DeserializeObject(text);
+            return json;
+        }
+
+        internal static string GetPreviousValue(dynamic prop)
+        {
+            var versions = prop?.versions;
+
+            if (versions == null)
+                return string.Empty;
+
+            if (versions.Count < 2)
+                return string.Empty;
+
+            return versions[1]?.value;
         }
     }
 }
