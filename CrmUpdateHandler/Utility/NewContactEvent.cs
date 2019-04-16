@@ -5,7 +5,7 @@ using System.Text;
 namespace CrmUpdateHandler
 {
     /// <summary>
-    /// This is the wrapper object around the NewContactPayload that is sent to event grid
+    /// This is the wrapper object around the NewContactPayload that is sent to EventGrid
     /// </summary>
     public class NewContactEvent
     {
@@ -51,6 +51,10 @@ namespace CrmUpdateHandler
         public string email { get; set; }
 
         public string customerNameOnBill { get; set; }
+
+        public string synergyRrn { get; set; }
+
+        
 
         public string restUri { get; set; }
     }

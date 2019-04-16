@@ -17,6 +17,7 @@ namespace CrmUpdateHandler
         /// <returns></returns>
         public static bool Validate(HttpRequest req, string requestBody)
         {
+            // TODO
             // From the doco: To verify this signature, concatenate the app secret of your application and the un-parsed
             // request body of the request you're handling, and get a SHA-256 hash of the result. Compare the resulting 
             // hash with the value of the X-HubSpot-Signature. If these values match, then this verifies that this request came from HubSpot.

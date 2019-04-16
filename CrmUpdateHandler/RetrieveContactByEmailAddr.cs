@@ -16,7 +16,7 @@ namespace CrmUpdateHandler
 {
     /// <summary>
     /// Given an email address, look up that email address in the CRM and return the ID of the Contact
-    /// This is part of a workflow triggered when an email lands in the approvals@plicoenergy.om.au inbox
+    /// This is potentially part of a workflow triggered when an email lands in the approvals@plicoenergy.om.au inbox
     /// We have to invoke the Hubspot API and search for a contact by email.
     /// [
     ///  {
@@ -38,7 +38,7 @@ namespace CrmUpdateHandler
     /// https://github.com/projectkudu/kudu/wiki/Deploying-from-a-zip-file-or-url
     /// https://social.msdn.microsoft.com/Forums/en-US/520a8488-d1a9-4843-be01-effdba936bd3/azure-function-publish-from-vs2017-fails-with-requesttimeout-and-0x80070002-on?forum=AzureFunctions
     /// </remarks>
-    public static class RetrieveContactByEmailAddr
+    internal static class RetrieveContactByEmailAddr
     {
         // Singleton instance - makes the Azure functions more scalable.
         private static readonly HttpClient httpClient;
@@ -48,7 +48,7 @@ namespace CrmUpdateHandler
         static RetrieveContactByEmailAddr()
         {
             // See https://docs.microsoft.com/en-us/azure/architecture/antipatterns/improper-instantiation/
-            // for an explanation as to why tis is better than 'using (var httplient = new HttpClient()) {}"
+            // for an explanation as to why this is better than 'using (var httplient = new HttpClient()) {}"
             httpClient = new HttpClient();
 
             hapikey = Environment.GetEnvironmentVariable("hapikey", EnvironmentVariableTarget.Process);

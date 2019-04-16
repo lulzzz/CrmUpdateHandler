@@ -65,6 +65,9 @@ namespace CrmUpdateHandler
         public string synergyAccountNumber { get; set; }
         public string oldSynergyAccountNumber { get; set; }
 
+        public string synergyRrn { get; set; }
+        public string oldSynergyRrn { get; set; }
+
         public string supplyAddress { get; set; }
         public string oldSupplyAddress { get; set; }
 
