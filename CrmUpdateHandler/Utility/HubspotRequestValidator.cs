@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace CrmUpdateHandler
+namespace CrmUpdateHandler.Utility
 {
     internal static class HubspotRequestValidator
     {

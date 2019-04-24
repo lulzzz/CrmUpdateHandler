@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace CrmUpdateHandler
+namespace CrmUpdateHandler.Utility
 {
     /// <summary>
     /// This class is used in the logic that filters out Hubspot "Update" events if they're made redundant

@@ -2,25 +2,38 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace CrmUpdateHandler
+namespace CrmUpdateHandler.Utility
 {
     /// <summary>
     /// This is the wrapper object around the NewContactPayload that is sent to EventGrid
     /// </summary>
     public class NewContactEvent
     {
-        public string id { get; set; }
+        /// <summary>
+        /// We get a complex structure back from Hubspot when we retrieve a Contact. We 
+        /// only need a bit of it.
+        /// </summary>
+        public NewContactEvent(string eventId, CanonicalContact hubSpotContact)
+        {
+            this.id = eventId;
+            this.eventType = "NewContact";
+            subject = "Starling.Crm.ContactCreated";
+            this.eventTime = DateTime.UtcNow;
+            data = new NewContactPayload(hubSpotContact);
+        }
 
-        public string eventType { get; set; }
+        public string id { get; private set; }
 
-        public string subject { get; set; }
+        public string eventType { get; private set; }
+
+        public string subject { get; private set; }
 
         /// <summary>
         /// Event time in ISO8601 format
         /// </summary>
-        public DateTime eventTime { get; set; }
+        public DateTime eventTime { get; private set; }
 
-        public NewContactPayload data { get; set; }
+        public NewContactPayload data { get; private set; }
 
         public string dataVersion => "1.0";
     }
@@ -30,6 +43,25 @@ namespace CrmUpdateHandler
     /// </summary>
     public class NewContactPayload
     {
+        public NewContactPayload(CanonicalContact hubspotContact)
+        {
+            this.contactId = hubspotContact.contactId;
+            this.firstName = hubspotContact.firstName;
+            this.lastName = hubspotContact.lastName;
+            this.phone = hubspotContact.phone;
+            this.email = hubspotContact.email;
+            this.customerNameOnBill = hubspotContact.customerNameOnBill;
+            this.meterNumber = hubspotContact.meterNumber;
+            this.synergyAccountNumber = hubspotContact.synergyAccountNumber;
+            this.synergyRrn = hubspotContact.synergyRrn;
+            this.supplyAddress = hubspotContact.supplyAddress;
+            this.jobTitle = hubspotContact.jobTitle;
+            this.cep = hubspotContact.cep;
+            this.contractStatus = hubspotContact.contractStatus;
+
+            this.restUri = hubspotContact.restUri;
+        }
+
         /// <summary>
         /// 
         /// </summary>
@@ -42,20 +74,32 @@ namespace CrmUpdateHandler
 
         public string contactId { get; private set; }
 
-        public string firstName { get; set; }
+        public string firstName { get; private set; }
 
-        public string lastName { get; set; }
+        public string lastName { get; private set; }
 
-        public string phone { get; set; }
+        public string phone { get; private set; }
 
-        public string email { get; set; }
+        public string email { get; private set; }
 
-        public string customerNameOnBill { get; set; }
+        public string customerNameOnBill { get; private set; }
 
-        public string synergyRrn { get; set; }
+        public string meterNumber { get; set; }
 
-        
+        public string synergyAccountNumber { get; set; }
 
-        public string restUri { get; set; }
+        public string synergyRrn { get; private set; }
+
+        public string supplyAddress { get; set; }
+
+        public string jobTitle { get; set; }
+
+        public string cep { get; set; }
+
+        public string contractStatus { get; set; }
+
+
+
+        public string restUri { get; private set; }
     }
 }
