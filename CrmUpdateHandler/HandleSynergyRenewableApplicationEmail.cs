@@ -8,6 +8,9 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using System.Text.RegularExpressions;
+using CrmUpdateHandler.Utility;
+using System.Net;
+using System.Collections.Generic;
 
 namespace CrmUpdateHandler
 {
@@ -20,20 +23,23 @@ namespace CrmUpdateHandler
         /// <param name="req"></param>
         /// <param name="log"></param>
         /// <returns></returns>
+        /// <remarks>https://crmupdatehandler.azurewebsites.net/api/HandleSynergyRenewableApplicationEmail?hello=there</remarks>
         [FunctionName("HandleSynergyRenewableApplicationEmail")]
         public static async Task<IActionResult> Run(
             [HttpTrigger(AuthorizationLevel.Anonymous, "get", "post", Route = null)] HttpRequest req,
             ILogger log)
         {
-            log.LogInformation("C# HTTP trigger function processed a request.");
 
             // Was this a sign-of-life request? (i.e. somebody just passing the 'hello' param to see if the function is available)
             string hello = req.Query["hello"];
             if (!string.IsNullOrEmpty(hello))
             {
+                log.LogInformation("HandleSynergyRenewableApplicationEmail triggered by a hello request");
                 // We got a sign-of-life request. Just echo the hello string and exit
                 return new OkObjectResult(hello);
             }
+
+            log.LogInformation("Function triggered by receipt of Synergy email");
 
             string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
             //log.LogInformation(requestBody);
@@ -97,12 +103,51 @@ namespace CrmUpdateHandler
 
             if (proceedToRetrieveCrmContact)
             {
-                // TODO: Refactor RetrieveContactByEmailAddr to return the whole contact, and construct an UpdatedContact object
-                // to pass to event grid. 
+                // Retrieve the contact from the given email address. Construct an UpdatedContact object to pass to event grid.
+                var contactResult = await HubspotAdapter.RetrieveHubspotContactByEmailAddr(email, fetchPreviousValues:false);
+
+                if (contactResult.StatusCode == HttpStatusCode.NotFound)
+                {
+                    log.LogWarning("Contact {0} ({1}) not found in Hubspot", email, name);
+
+                    // Probably should create a hubspot contact, if we have enough info to do so.
+                    return new NotFoundObjectResult("{\"email\": \"" + email + "\"}");
+                }
+                else if (contactResult.StatusCode != HttpStatusCode.OK)
+                {
+                    // Some other sort of error
+                    log.LogError("Error {0} retrieving {1}: {2}", contactResult.StatusCode, email, contactResult.ErrorMessage);
+                    return new StatusCodeResult(500);
+                }
+                else
+                {
+                    log.LogInformation("Retrieved contact {0} from CRM", contactResult.Payload.contactId);
+
+                    // We retrieved the given contact. Update its RRN with the one that we got from the email
+                    contactResult.Payload.synergyRrn = rrn;
+
+                    // Wrap it up, suitable for submission to EventGrid
+                    var updatedContactEvent = new UpdatedContactEvent("SynergyEmail" + DateTime.Now.Ticks, "retailer_reference_number", contactResult.Payload);
+
+                    // And send that event to Event Grid
+                    var updatedContacts = new List<UpdatedContactEvent>();
+                    updatedContacts.Add(updatedContactEvent);
+                    var eventGridResponse = await EventGridAdapter.RaiseUpdatedContactEventsAsync(updatedContacts);
+
+                    if (eventGridResponse.StatusCode != HttpStatusCode.OK)
+                    {
+                        log.LogError("Error {0} sending updated contact to Event Grid: {1}", (int)eventGridResponse.StatusCode, eventGridResponse.ErrorMessage);
+                    }
+                    else
+                    {
+                        log.LogInformation("Successfully invoked {0} event", updatedContactEvent.eventType);
+                    }
+                }
+
                 // Then construct two Flow handlers, to update the CRM contact, and to update the Sharepoint table, too
             }
 
-            var retval = string.Format("{{\"name\": \"{0}\",\"rrn\": \"{1}\",\"email\": \"{2}\"}}",name,rrn,email);
+            var retval = string.Format("{{\"name\": \"{0}\",\"rrn\": \"{1}\",\"email\": \"{2}\"}}",name, rrn, email);
             return new OkObjectResult(retval);
 
 

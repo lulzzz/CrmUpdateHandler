@@ -10,6 +10,7 @@ using Newtonsoft.Json;
 using System.Net.Http;
 using System.Net;
 using System.Runtime.CompilerServices;
+using CrmUpdateHandler.Utility;
 
 [assembly: InternalsVisibleTo("Test")]
 namespace CrmUpdateHandler
@@ -40,21 +41,13 @@ namespace CrmUpdateHandler
     /// </remarks>
     internal static class RetrieveContactByEmailAddr
     {
-        // Singleton instance - makes the Azure functions more scalable.
-        private static readonly HttpClient httpClient;
 
-        private static readonly string hapikey;
-
-        static RetrieveContactByEmailAddr()
-        {
-            // See https://docs.microsoft.com/en-us/azure/architecture/antipatterns/improper-instantiation/
-            // for an explanation as to why this is better than 'using (var httplient = new HttpClient()) {}"
-            httpClient = new HttpClient();
-
-            hapikey = Environment.GetEnvironmentVariable("hapikey", EnvironmentVariableTarget.Process);
-        }
-
-
+        /// <summary>
+        /// Returns a Contact definition from the CRM, given an email address.
+        /// </summary>
+        /// <param name="req"></param>
+        /// <param name="log"></param>
+        /// <returns></returns>
         [FunctionName("RetrieveContactByEmailAddr")]
         public static async Task<IActionResult> Run(
             [HttpTrigger(AuthorizationLevel.Anonymous, "get", "post", Route = null)] HttpRequest req,
@@ -69,21 +62,21 @@ namespace CrmUpdateHandler
             // Retrieve the Hubspot contact corresponding to this email address
             try
             {
-                var result = await RetrieveHubspotContactIdByEmailAdd(email);
+                var contactResult = await HubspotAdapter.RetrieveHubspotContactByEmailAddr(email, fetchPreviousValues: false);
 
-                if (result.StatusCode == HttpStatusCode.OK)
+                if (contactResult.StatusCode == HttpStatusCode.OK)
                 {
-                    return new OkObjectResult(result.ContactId);
+                    return new OkObjectResult(contactResult.Payload);
                 }
-                else if (result.StatusCode == HttpStatusCode.NotFound)
+                else if (contactResult.StatusCode == HttpStatusCode.NotFound)
                 {
                     return (ActionResult)new NotFoundResult();
                 }
                 else
                 {
-                    log.LogError("Error: HTTP {0} {1} ", (int)result.StatusCode, result.ErrorMessage);
+                    log.LogError("Error: HTTP {0} {1} ", (int)contactResult.StatusCode, contactResult.ErrorMessage);
                     log.LogError("email: {0} ", email);
-                    return new StatusCodeResult((int)result.StatusCode);
+                    return new StatusCodeResult((int)contactResult.StatusCode);
                 }
 
             }
@@ -91,84 +84,6 @@ namespace CrmUpdateHandler
             {
                 return new StatusCodeResult(500);
             }
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="email"></param>
-        /// <param name="hapikey"></param>
-        /// <returns>A simple value type</returns>
-        internal static async Task<ContactRetrievalResult> RetrieveHubspotContactIdByEmailAdd(string email)
-        {
-            var hapikey = Environment.GetEnvironmentVariable("hapikey", EnvironmentVariableTarget.Process);
-
-            if (string.IsNullOrEmpty(hapikey))
-            {
-                return new ContactRetrievalResult(HttpStatusCode.InternalServerError, "hapi key not found");
-            }
-
-            // See https://developers.hubspot.com/docs/methods/contacts/get_contact_by_email
-            var url = string.Format($"https://api.hubapi.com/contacts/v1/contact/email/{email}/profile?hapikey={hapikey}");
-            //log.LogInformation("url: {0}", url);
-
-            // Go get the contact from HubSpot
-
-
-            HttpResponseMessage response = await httpClient.GetAsync(url);
-            HttpContent content = response.Content;
-            //log.LogInformation("Response StatusCode from contact retrieval: " + (int)response.StatusCode);
-            //log.LogInformation("Hubspot Contact");
-            if (response.StatusCode == HttpStatusCode.OK)
-            {
-                // ... Read the string.
-                string resultText = await content.ReadAsStringAsync();
-                //log.LogInformation(resultText);
-
-                dynamic contactJson = JsonConvert.DeserializeObject(resultText);
-
-                var contactId = Convert.ToString(contactJson?.vid);
-
-                return new ContactRetrievalResult(contactId);
-
-            }
-            else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
-            {
-                return new ContactRetrievalResult(response.StatusCode);
-            }
-            else
-            {
-                //log.LogError("Error: HTTP {0} {1} ", (int)response.StatusCode, response.StatusCode);
-                //log.LogError("email: {0} ", email);
-                string resultText = await content.ReadAsStringAsync();
-                return new ContactRetrievalResult(response.StatusCode, resultText);
-                //log.LogInformation(resultText);
-            }
-        }
-
-        internal class ContactRetrievalResult
-        {
-            public ContactRetrievalResult(string contactId)
-            {
-                this.StatusCode = HttpStatusCode.OK;
-                this.ContactId = contactId;
-            }
-
-            public ContactRetrievalResult(HttpStatusCode code)
-            {
-                this.StatusCode = code;
-            }
-            public ContactRetrievalResult(HttpStatusCode code, string errorMessage)
-            {
-                this.StatusCode = code;
-                this.ErrorMessage = errorMessage;
-            }
-
-            public HttpStatusCode StatusCode { get; set; }
-
-            public string ErrorMessage { get; set; }
-            
-            public string ContactId { get; set; }
         }
     }
 }
