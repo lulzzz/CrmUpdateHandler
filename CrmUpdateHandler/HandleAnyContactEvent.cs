@@ -36,17 +36,6 @@ namespace CrmUpdateHandler
     /// </remarks>
     public static class HandleAnyContactEvent
     {
-        // Singleton instances - makes the Azure functions more scalable.
-        private static readonly HttpClient hubspotHttpClient;
-
-        static HandleAnyContactEvent()
-        {
-            // See https://docs.microsoft.com/en-us/azure/architecture/antipatterns/improper-instantiation/
-            // for an explanation as to why tis is better than 'using (var httplient = new HttpClient()) {}"
-            hubspotHttpClient = new HttpClient();
-        }
-
-
         /// <summary>
         /// The entry point into the function
         /// </summary>
@@ -58,15 +47,17 @@ namespace CrmUpdateHandler
             [HttpTrigger(AuthorizationLevel.Anonymous, "get", "post", Route = null)] HttpRequest req,
             ILogger log)
         {
-            log.LogInformation("HandleAnyContactEvent trigger by HTTP");
 
             // Was this a sign-of-life request? (i.e. somebody just passing the 'hello' param to see if the function is deployed and available)
             string hello = req.Query["hello"];
             if (!string.IsNullOrEmpty(hello))
             {
+                log.LogInformation("HandleAnyContactEvent - sign-of-life check");
                 // We got a sign-of-life request. Just echo the hello string and exit
                 return new OkObjectResult(hello);
             }
+
+            log.LogInformation("HandleAnyContactEvent trigger by HTTP");
 
             // Parse the request body as JSON. It should be an array containing one or more contact-related events from Hubspot
             string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
@@ -189,12 +180,15 @@ namespace CrmUpdateHandler
                             // Extract some details of the contact, to send to Event Grid
                             newContactEvent = new NewContactEvent(contactEvent.EventId, contactResult.Payload);
                             newContacts.Add(newContactEvent);
+                            log.LogInformation("New Contact: " + contactResult.Payload.email);
                         }
                         else
                         {
                             updatedContactEvent = new UpdatedContactEvent(contactEvent.EventId, contactEvent.PropertyName, contactResult.Payload);
 
                             updatedContacts.Add(updatedContactEvent);
+                            log.LogInformation("Updating " + contactEvent.PropertyName + " for " + contactResult.Payload.email);
+
                         }
                     }
                     else

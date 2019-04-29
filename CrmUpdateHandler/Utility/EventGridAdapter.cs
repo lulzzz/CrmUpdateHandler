@@ -44,6 +44,12 @@ namespace CrmUpdateHandler.Utility
                 //log.LogInformation("We got {0} updated contacts to pass to the event grid", updatedContacts.Count);
                 var eventGridTopicEndpoint = Environment.GetEnvironmentVariable("UpdatedCrmContactTopicEndpoint", EnvironmentVariableTarget.Process);
 
+                if (string.IsNullOrEmpty(eventGridTopicEndpoint))
+                {
+                    retval = new EventGridSubmissionResult(HttpStatusCode.InternalServerError, "eventGridTopicEndpoint was null");
+                    return retval;
+                }
+
                 //log.LogInformation(eventGridTopicEndpoint);
                 //log.LogInformation("Contact {0} ({1} {2}) updated {3}", updatedContacts[0].data.contactId, updatedContacts[0].data.firstName, updatedContacts[0].data.lastName, updatedContacts[0].eventType);
                 //log.LogInformation(JsonConvert.SerializeObject(updatedContacts));

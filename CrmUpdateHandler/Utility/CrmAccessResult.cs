@@ -3,21 +3,22 @@
 namespace CrmUpdateHandler.Utility
 {
     /// <summary>
-    /// Contains the details of a Contact, as well as the status flags from the retrieval itself. 
+    /// Represents the result of accessing the Crm to retrieve, update or create a contact. 
+    /// Contains the details of a Contact, as well as the status flags from the CRUD operation itself. 
     /// </summary>
-    internal class ContactRetrievalResult
+    internal class CrmAccessResult
     {
-        public ContactRetrievalResult(CanonicalContact contact)
+        public CrmAccessResult(CanonicalContact contact)
         {
             this.Payload = contact;
             this.StatusCode = HttpStatusCode.OK;
         }
 
-        public ContactRetrievalResult(HttpStatusCode code)
+        public CrmAccessResult(HttpStatusCode code)
         {
             this.StatusCode = code;
         }
-        public ContactRetrievalResult(HttpStatusCode code, string errorMessage)
+        public CrmAccessResult(HttpStatusCode code, string errorMessage)
         {
             this.StatusCode = code;
             this.ErrorMessage = errorMessage;

@@ -33,8 +33,18 @@ namespace CrmUpdateHandler.Utility
         public string lastName { get; set; }
         public string oldLastName { get; set; }
 
-        public string fullName => this.firstName + "." + this.lastName;
-        public string oldFullName => this.oldFirstName + "." + this.oldLastName;
+        /// <summary>
+        /// Gets a full name of the form 'First', 'Last' or 'First.Last'
+        /// </summary>
+        public string fullNamePeriodSeparated => (this.firstName + "." + this.lastName).Trim('.');
+        public string oldFullNamePeriodSeparated => (this.oldFirstName + "." + this.oldLastName).Trim('.');
+
+
+        /// <summary>
+        /// Gets a full name, space-separated.
+        /// </summary>
+        public string fullName => (this.firstName + " " + this.lastName).Trim(' ');
+        public string oldFullName => (this.oldFirstName + " " + this.oldLastName).Trim(' ');
 
 
         public string phone { get; set; }

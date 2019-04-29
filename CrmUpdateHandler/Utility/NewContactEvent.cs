@@ -78,6 +78,10 @@ namespace CrmUpdateHandler.Utility
 
         public string lastName { get; private set; }
 
+        public string fullNamePeriodSeparated => (this.firstName + "." + this.lastName).Trim('.');
+
+        public string fullName => (this.firstName + " " + this.lastName).Trim(' ');
+
         public string phone { get; private set; }
 
         public string email { get; private set; }

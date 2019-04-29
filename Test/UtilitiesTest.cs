@@ -21,6 +21,44 @@ namespace Test
             Assert.Equal("001234", payload.contactId);
         }
 
+        [Fact]
+        public void New_Contact_Generates_FullNames_Correctly()
+        {
+            var contact = new CanonicalContact("1234")
+            {
+                firstName = "Jack",
+                lastName = "Mack"
+            };
+
+            var newContactPayload = new NewContactPayload(contact);
+
+            Assert.Equal("Jack.Mack", newContactPayload.fullNamePeriodSeparated);
+            Assert.Equal("Jack Mack", newContactPayload.fullName);
+        }
+
+
+        [Fact]
+        public void Updated_Contact_Generates_FullNames_Correctly()
+        {
+            var contact = new CanonicalContact("1234")
+            {
+                firstName = "Jack",
+                lastName = "Mack"
+            };
+
+            Assert.Equal("Jack.Mack", contact.fullNamePeriodSeparated);
+            Assert.Equal("Jack Mack", contact.fullName);
+
+            contact.lastName = string.Empty;
+            Assert.Equal("Jack", contact.fullNamePeriodSeparated);
+            Assert.Equal("Jack", contact.fullName);
+
+            contact.firstName = string.Empty;
+            contact.lastName = "Foo";
+            Assert.Equal("Foo", contact.fullNamePeriodSeparated);
+            Assert.Equal("Foo", contact.fullName);
+        }
+
         /// <summary>
         /// This test relies on an environment variable called 'hapikey' being correctly set. Note that after setting this, Visual Studio must be restarted
         /// in order to see it. 

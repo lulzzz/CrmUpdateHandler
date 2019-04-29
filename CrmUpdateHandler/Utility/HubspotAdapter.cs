@@ -1,6 +1,7 @@
 ﻿using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Net;
 using System.Net.Http;
 using System.Text;
@@ -17,6 +18,20 @@ namespace CrmUpdateHandler.Utility
         private static readonly HttpClient httpClient;
 
         private static readonly string hapikey;
+
+        /// <summary>
+        /// An array of these properties will serialise to the correct form to send to Hubspot
+        /// </summary>
+        class NewContactProperty
+        {
+            public NewContactProperty(string property, string value)
+            {
+                this.property = property;
+                this.value = value;
+            }
+            string property { get; set; }
+            string value { get; set; }
+        }
 
         /// <summary>
         /// Static constructor performs a one-time initialisation of the httpClient and hubspot API key
@@ -36,7 +51,7 @@ namespace CrmUpdateHandler.Utility
         /// <param name="contactId">The Hubspot Contact Id</param>
         /// <param name="fetchPreviousValues">A value to indicate whether to populate the oldXXX properties from the Hubspot 'versions' array</param>
         /// <returns></returns>
-        internal static async Task<ContactRetrievalResult> RetrieveHubspotContactById(string contactId, bool fetchPreviousValues)
+        internal static async Task<CrmAccessResult> RetrieveHubspotContactById(string contactId, bool fetchPreviousValues)
         {
             // Formulate the url:
             // GET /contacts/v1/contact/vid/:vid/profile
@@ -54,7 +69,7 @@ namespace CrmUpdateHandler.Utility
         /// <returns>A Type containing the Contact</returns>
         /// <remarks>Sometimes we will want the old properties and the new (which Hubspot gives us). Other times, we will
         /// just want the current properties, as we will override them with an externally-sourced value</remarks>
-        internal static async Task<ContactRetrievalResult> RetrieveHubspotContactByEmailAddr(string email, bool fetchPreviousValues)
+        internal static async Task<CrmAccessResult> RetrieveHubspotContactByEmailAddr(string email, bool fetchPreviousValues)
         {
             // See https://developers.hubspot.com/docs/methods/contacts/get_contact_by_email
             var url = string.Format($"https://api.hubapi.com/contacts/v1/contact/email/{email}/profile?hapikey={hapikey}");
@@ -64,17 +79,100 @@ namespace CrmUpdateHandler.Utility
         }
 
         /// <summary>
+        /// Create a contact in Hubspot
+        /// </summary>
+        /// <param name="email"></param>
+        /// <param name="firstname"></param>
+        /// <param name="lastname"></param>
+        /// <returns></returns>
+        /// <see cref="https://developers.hubspot.com/docs/methods/contacts/create_contact"/>
+        internal static async Task<CrmAccessResult> CreateHubspotContactAsync(string email, string firstname, string lastname, string primaryPhone)
+        {
+            // Check that the Hubspot API key was correctly retrieved in the static constructor
+            if (string.IsNullOrEmpty(hapikey))
+            {
+                return new CrmAccessResult(HttpStatusCode.InternalServerError, "hapi key not found");
+            }
+
+            var properties = new List<NewContactProperty>();
+
+            // Need to sanitise the properties received here. 
+            if (new EmailAddressAttribute().IsValid("email"))
+            {
+                properties.Add(new NewContactProperty("email", email));
+            }
+            else
+            {
+                return new CrmAccessResult(HttpStatusCode.InternalServerError, "New Contact email address not supplied");
+            }
+
+            if (UserInputIsValid(firstname))
+            {
+                properties.Add(new NewContactProperty("firstname", firstname));
+            }
+
+            if (UserInputIsValid(lastname))
+            {
+                properties.Add(new NewContactProperty("lastname", lastname));
+            }
+
+            if (UserInputIsValid(primaryPhone))
+            {
+                properties.Add(new NewContactProperty("phne", primaryPhone));
+            }
+
+            var url = string.Format($"https://api.hubapi.com/contacts/v1/contact/?hapikey={hapikey}");
+
+            // Need to POST to Hubspot to create a contact
+            HttpResponseMessage response = await httpClient.PostAsJsonAsync(url, properties);
+
+            HttpContent content = response.Content;
+
+            // Check Status Code. 
+            if (response.StatusCode == HttpStatusCode.OK)
+            {
+                // All good. Read the string out of the body
+                string resultText = await content.ReadAsStringAsync();
+
+                var newContactResponse = ConvertHubspotJsonToCanonicalContact(resultText, fetchPreviousValues: false);
+
+                var retval = new CrmAccessResult(newContactResponse);
+                return retval;
+            }
+            else
+            {
+                // Some other error
+                string resultText = await content.ReadAsStringAsync();
+                return new CrmAccessResult(response.StatusCode, resultText);
+            }
+        }
+
+        /// <summary>
+        /// An extensible, centralised place to put validations for user input. Not sure it's adding value, but it's here to spark thought. Wish there was a library to do this.
+        /// </summary>
+        /// <param name="stringUnderTest"></param>
+        /// <returns></returns>
+        private static bool UserInputIsValid(string stringUnderTest)
+        {
+            if (string.IsNullOrEmpty(stringUnderTest)) return false;
+            if (stringUnderTest.Length > 255) return false;
+            if (stringUnderTest.Contains("<script")) return false;
+
+            return true;
+        }
+
+        /// <summary>
         /// Utility method that retrieves a Hubspot contact from the API and extracts the most important parameters into a structure.
         /// </summary>
         /// <param name="url">A valid GET url for retrieving a Hubspot contact</param>
         /// <param name="fetchPreviousValues"></param>
         /// <returns></returns>
-        private static async Task<ContactRetrievalResult> RetrieveHubspotContactWithUrl(string url, bool fetchPreviousValues)
+        private static async Task<CrmAccessResult> RetrieveHubspotContactWithUrl(string url, bool fetchPreviousValues)
         {
             // Check that the Hubspot API key was correctly retrieved in the static constructor
             if (string.IsNullOrEmpty(hapikey))
             {
-                return new ContactRetrievalResult(HttpStatusCode.InternalServerError, "hapi key not found");
+                return new CrmAccessResult(HttpStatusCode.InternalServerError, "hapi key not found");
             }
 
             // Go get the contact from HubSpot using the supplied url
@@ -89,19 +187,19 @@ namespace CrmUpdateHandler.Utility
                 //log.LogInformation(resultText);
                 var canonicalContact = ConvertHubspotJsonToCanonicalContact(resultText, fetchPreviousValues);
 
-                var retval = new ContactRetrievalResult(canonicalContact);
+                var retval = new CrmAccessResult(canonicalContact);
                 return retval;
             }
             else if (response.StatusCode == HttpStatusCode.NotFound)
             {
                 // NotFound error
-                return new ContactRetrievalResult(response.StatusCode);
+                return new CrmAccessResult(response.StatusCode);
             }
             else
             {
                 // Some other error
                 string resultText = await content.ReadAsStringAsync();
-                return new ContactRetrievalResult(response.StatusCode, resultText);
+                return new CrmAccessResult(response.StatusCode, resultText);
             }
 
         }

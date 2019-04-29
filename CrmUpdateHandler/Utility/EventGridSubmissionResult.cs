@@ -13,6 +13,12 @@ namespace CrmUpdateHandler.Utility
             this.StatusCode = response.StatusCode;
         }
 
+        public EventGridSubmissionResult(HttpStatusCode statusCode, string errorMessage)
+        {
+            this.StatusCode = statusCode;
+            this.ErrorMessage = errorMessage;
+        }
+
         public HttpStatusCode StatusCode { get; private set; }
 
         public string ErrorMessage { get; set;}
