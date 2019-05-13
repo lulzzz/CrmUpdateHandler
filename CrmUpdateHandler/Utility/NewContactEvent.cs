@@ -50,14 +50,7 @@ namespace CrmUpdateHandler.Utility
             this.lastName = hubspotContact.lastName;
             this.phone = hubspotContact.phone;
             this.email = hubspotContact.email;
-            this.customerNameOnBill = hubspotContact.customerNameOnBill;
-            this.meterNumber = hubspotContact.meterNumber;
-            this.synergyAccountNumber = hubspotContact.synergyAccountNumber;
-            this.synergyRrn = hubspotContact.synergyRrn;
-            this.supplyAddress = hubspotContact.supplyAddress;
             this.jobTitle = hubspotContact.jobTitle;
-            this.cep = hubspotContact.cep;
-            this.contractStatus = hubspotContact.contractStatus;
 
             this.restUri = hubspotContact.restUri;
         }
@@ -85,25 +78,9 @@ namespace CrmUpdateHandler.Utility
         public string phone { get; private set; }
 
         public string email { get; private set; }
-
-        public string customerNameOnBill { get; private set; }
-
-        public string meterNumber { get; set; }
-
-        public string synergyAccountNumber { get; set; }
-
-        public string synergyRrn { get; private set; }
-
-        public string supplyAddress { get; set; }
-
+        
         public string jobTitle { get; set; }
-
-        public string cep { get; set; }
-
-        public string contractStatus { get; set; }
-
-
-
+        
         public string restUri { get; private set; }
     }
 }

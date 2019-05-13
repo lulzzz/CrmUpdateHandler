@@ -53,29 +53,10 @@ namespace CrmUpdateHandler.Utility
         public string email { get; set; }
         public string oldEmail { get; set; }
 
-        public string customerNameOnBill { get; set; }
-        public string oldCustomerNameOnBill { get; set; }
-
-        public string meterNumber { get; set; }
-        public string oldMeterNumber { get; set; }
-
-        public string synergyAccountNumber { get; set; }
-        public string oldSynergyAccountNumber { get; set; }
-
-        public string synergyRrn { get; set; }
-        public string oldSynergyRrn { get; set; }
-
-        public string supplyAddress { get; set; }
-        public string oldSupplyAddress { get; set; }
-
         public string jobTitle { get; set; }
         public string oldJobTitle { get; set; }
 
-        public string cep { get; set; }
-        public string oldCep { get; set; }
 
-        public string contractStatus { get; set; }
-        public string oldContractStatus { get; set; }
 
     }
 }

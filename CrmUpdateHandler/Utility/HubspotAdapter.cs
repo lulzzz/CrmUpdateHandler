@@ -218,27 +218,15 @@ namespace CrmUpdateHandler.Utility
             var lastName = contact.properties.lastname?.value;
             var phone = contact.properties.phone?.value;
             var email = contact.properties.email?.value;
-            var customerNameOnBill = contact.properties.customer_name_on_bill?.value;
-            var meterNumber = contact.properties.meter_number?.value;
-            var synergyAccountNumber = contact.properties.synergy_account_no?.value;
-            var synergyRrn = contact.properties.retailer_reference_number?.value;
-            var supplyAddress = contact.properties.supply_address?.value;
             var jobTitle = contact.properties.jobtitle?.value;
-            var cep = contact.properties.cep?.value;
-            var contractStatus = contact.properties.contract_status?.value;
+
 
             var oldFirstName = firstName;
             var oldLastName = lastName;
             var oldPhone = phone;
             var oldEmail = email;
-            var oldCustomerNameOnBill = customerNameOnBill;
-            var oldMeterNumber = meterNumber;
-            var oldSynergyAccountNumber = synergyAccountNumber;
-            var oldSynergyRrn = synergyRrn;
-            var oldSupplyAddress = supplyAddress;
             var oldJobTitle = jobTitle;
-            var oldCep = cep;
-            var oldContractStatus = contractStatus;
+
 
             var restUri = contact["profile-url"].ToString();
 
@@ -248,14 +236,8 @@ namespace CrmUpdateHandler.Utility
                 oldLastName = GetPreviousValue(contact.properties.lastname);
                 oldPhone = GetPreviousValue(contact.properties.phone);
                 oldEmail = GetPreviousValue(contact.properties.email);
-                oldCustomerNameOnBill = GetPreviousValue(contact.properties.customer_name_on_bill);
-                oldMeterNumber = GetPreviousValue(contact.properties.meter_number);
-                oldSynergyAccountNumber = GetPreviousValue(contact.properties.synergy_account_no);
-                oldSynergyRrn = GetPreviousValue(contact.properties.retailer_reference_number);
-                oldSupplyAddress = GetPreviousValue(contact.properties.supply_address);
                 oldJobTitle = GetPreviousValue(contact.properties.jobtitle);
-                oldCep = GetPreviousValue(contact.properties.cep);
-                oldContractStatus = GetPreviousValue(contact.properties.contract_status);
+
             }
 
             var canonicalContact = new CanonicalContact(Convert.ToString(contact.vid))
@@ -272,29 +254,8 @@ namespace CrmUpdateHandler.Utility
                 email = email,
                 oldEmail = oldEmail,
 
-                customerNameOnBill = customerNameOnBill,
-                oldCustomerNameOnBill = oldCustomerNameOnBill,
-
-                meterNumber = meterNumber,
-                oldMeterNumber = oldMeterNumber,
-
-                synergyAccountNumber = synergyAccountNumber,
-                oldSynergyAccountNumber = oldSynergyAccountNumber,
-
-                synergyRrn = synergyRrn,
-                oldSynergyRrn = oldSynergyRrn,
-
-                supplyAddress = supplyAddress,
-                oldSupplyAddress = oldSupplyAddress,
-
                 jobTitle = jobTitle,
                 oldJobTitle = oldJobTitle,
-
-                cep = cep,
-                oldCep = oldCep,
-
-                contractStatus = contractStatus,
-                oldContractStatus = oldContractStatus,
 
                 restUri = restUri
             };

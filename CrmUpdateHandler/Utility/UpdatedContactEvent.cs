@@ -8,7 +8,7 @@ namespace CrmUpdateHandler.Utility
     /// <summary>
     /// This is the wrapper object around an updated contact that is sent to event grid
     /// </summary>
-    public class UpdatedContactEvent
+    public class UpdatedContactEvent : EventGridEvent
     {
         public UpdatedContactEvent(string id, string propertyName, CanonicalContact hubspotContact)
         {
@@ -69,20 +69,10 @@ namespace CrmUpdateHandler.Utility
 
         }
 
-        public string id { get; private set; }
-
-        public string eventType { get; private set; }
-
-        public string subject { get; private set; }
-
         /// <summary>
-        /// Event time in ISO8601 format
+        /// Gets the payload data object passed to the event grid
         /// </summary>
-        public DateTime eventTime { get; private set; }
-
         public CanonicalContact data { get; private set; }
-
-        public string dataVersion => "1.0";
     }
 
 }
