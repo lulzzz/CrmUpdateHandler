@@ -13,6 +13,11 @@ using System.Collections.Generic;
 
 namespace CrmUpdateHandler
 {
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <remarks>This function now has no contact with the CRM. It has been copied into the PlicoInstallationHandler project.
+    /// Or maybe this is not a useful distinction to make. Time will tell.</remarks>
     public static class HandleSynergyRenewableApplicationEmail
     {
         /// <summary>
@@ -40,13 +45,13 @@ namespace CrmUpdateHandler
 
             log.LogInformation("Function triggered by receipt of Synergy email");
 
-            // The Flow that calls us sticks the messageId as a querystring parameter. This gives us a chance to pass it through
+            // The Flow that calls us passes the messageId as a querystring parameter. This gives us a chance to pass it through
             string messageId = req.Query["messageId"];
             log.LogInformation("Original messageId: " + messageId);
 
             // Extract the original email body from the body of the POST request.
             string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
-            log.LogInformation(requestBody);
+            //log.LogInformation(requestBody);  // maybe turn this on from application parameter?
 
             // Hand off the email parsing to a specialist parser.
             var extractedSynergyFields = await SynergyEmailParser.Parse(requestBody, log);

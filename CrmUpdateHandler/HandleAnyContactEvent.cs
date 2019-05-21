@@ -137,7 +137,7 @@ namespace CrmUpdateHandler
                     string propertyValue = contactEvent?.propertyValue;
                     string subscriptionType = contactEvent?.subscriptionType;
                     string attemptNumber = contactEvent?.attemptNumber;
-                    log.LogInformation("Attempt number {0}", attemptNumber);
+                    log.LogInformation("Attempt number {0} for contact {1}: {2}", attemptNumber, objectId, subscriptionType);
 
                     switch (subscriptionType)
                     {
