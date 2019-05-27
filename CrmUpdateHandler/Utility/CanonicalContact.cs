@@ -56,7 +56,11 @@ namespace CrmUpdateHandler.Utility
         public string jobTitle { get; set; }
         public string oldJobTitle { get; set; }
 
-
+        /// <summary>
+        /// This governs whether an Installations record is created or not.
+        /// </summary>
+        public string leadStatus { get; set; }
+        public string oldLeadStatus { get; set; }
 
     }
 }

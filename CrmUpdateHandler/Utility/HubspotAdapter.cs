@@ -12,7 +12,7 @@ namespace CrmUpdateHandler.Utility
     /// <summary>
     /// Centralises functionalities and resources for reading and writing against the Hubspot CRM.
     /// </summary>
-    internal static partial class HubspotAdapter
+    internal static class HubspotAdapter
     {
         // Singleton instance - this makes the Azure functions more scalable.
         private static readonly HttpClient httpClient;
@@ -20,18 +20,38 @@ namespace CrmUpdateHandler.Utility
         private static readonly string hapikey;
 
         /// <summary>
-        /// An array of these properties will serialise to the correct form to send to Hubspot
+        /// Represents the object sent to the HubSpot API to create a Contact
         /// </summary>
-        class NewContactProperty
+        public class ContactProperties
         {
-            public NewContactProperty(string property, string value)
+            /// <summary>
+            /// The class that encapsulates the 'property' and the 'value' is internal
+            /// </summary>
+            public class NewContactProperty
             {
-                this.property = property;
-                this.value = value;
+                public NewContactProperty(string property, string value)
+                {
+                    this.property = property;
+                    this.value = value;
+                }
+                public string property { get; set; }
+                public string value { get; set; }
             }
-            string property { get; set; }
-            string value { get; set; }
+
+
+            public List<NewContactProperty> properties;
+
+            public ContactProperties()
+            {
+                this.properties = new List<NewContactProperty>();
+            }
+
+            public void Add(string property, string value)
+            {
+                this.properties.Add(new NewContactProperty(property, value));
+            }
         }
+
 
         /// <summary>
         /// Static constructor performs a one-time initialisation of the httpClient and hubspot API key
@@ -94,12 +114,12 @@ namespace CrmUpdateHandler.Utility
                 return new CrmAccessResult(HttpStatusCode.InternalServerError, "hapi key not found");
             }
 
-            var properties = new List<NewContactProperty>();
+            var newContactProperties = new ContactProperties();
 
             // Need to sanitise the properties received here. 
-            if (new EmailAddressAttribute().IsValid("email"))
+            if (new EmailAddressAttribute().IsValid(email))
             {
-                properties.Add(new NewContactProperty("email", email));
+                newContactProperties.Add("email", email);
             }
             else
             {
@@ -108,23 +128,25 @@ namespace CrmUpdateHandler.Utility
 
             if (UserInputIsValid(firstname))
             {
-                properties.Add(new NewContactProperty("firstname", firstname));
+                newContactProperties.Add("firstname", firstname);
             }
 
             if (UserInputIsValid(lastname))
             {
-                properties.Add(new NewContactProperty("lastname", lastname));
+                newContactProperties.Add("lastname", lastname);
             }
 
             if (UserInputIsValid(primaryPhone))
             {
-                properties.Add(new NewContactProperty("phne", primaryPhone));
+                newContactProperties.Add("phone", primaryPhone);
             }
 
             var url = string.Format($"https://api.hubapi.com/contacts/v1/contact/?hapikey={hapikey}");
 
+            var dbg = JsonConvert.SerializeObject(newContactProperties);
+
             // Need to POST to Hubspot to create a contact
-            HttpResponseMessage response = await httpClient.PostAsJsonAsync(url, properties);
+            HttpResponseMessage response = await httpClient.PostAsJsonAsync(url, newContactProperties);
 
             HttpContent content = response.Content;
 
@@ -141,7 +163,7 @@ namespace CrmUpdateHandler.Utility
             }
             else
             {
-                // Some other error
+                // Some other error - return the status code and body to the caller of the function
                 string resultText = await content.ReadAsStringAsync();
                 return new CrmAccessResult(response.StatusCode, resultText);
             }
@@ -219,6 +241,7 @@ namespace CrmUpdateHandler.Utility
             var phone = contact.properties.phone?.value;
             var email = contact.properties.email?.value;
             var jobTitle = contact.properties.jobtitle?.value;
+            var leadStatus = contact.properties.hs_lead_status?.value;
 
 
             var oldFirstName = firstName;
@@ -226,6 +249,7 @@ namespace CrmUpdateHandler.Utility
             var oldPhone = phone;
             var oldEmail = email;
             var oldJobTitle = jobTitle;
+            var oldLeadStatus = leadStatus;
 
 
             var restUri = contact["profile-url"].ToString();
@@ -237,6 +261,7 @@ namespace CrmUpdateHandler.Utility
                 oldPhone = GetPreviousValue(contact.properties.phone);
                 oldEmail = GetPreviousValue(contact.properties.email);
                 oldJobTitle = GetPreviousValue(contact.properties.jobtitle);
+                oldLeadStatus = GetPreviousValue(contact.properties.hs_lead_status);
 
             }
 
@@ -256,6 +281,9 @@ namespace CrmUpdateHandler.Utility
 
                 jobTitle = jobTitle,
                 oldJobTitle = oldJobTitle,
+
+                leadStatus = leadStatus,
+                oldLeadStatus = oldLeadStatus,
 
                 restUri = restUri
             };

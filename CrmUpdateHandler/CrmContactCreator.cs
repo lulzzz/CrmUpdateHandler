@@ -14,16 +14,15 @@ namespace CrmUpdateHandler
     /// <summary>
     /// Entry point to create a new contact in the CRM or the day
     /// </summary>
-    public static class CreateNewCrmContact
+    public class CrmContactCreator
     {
+
         [FunctionName("CreateNewCrmContact")]
-        public static async Task<IActionResult> Run(
+        public async Task<IActionResult> CreateNewContact(
             [HttpTrigger(AuthorizationLevel.Function, "get", "post", Route = null)] HttpRequest req,
             ILogger log)
         {
             log.LogInformation("CreateNewCrmContact triggered");
-
-            // TODO: Require an access key to ientify the caller, look it up in a database or file
 
             string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
 

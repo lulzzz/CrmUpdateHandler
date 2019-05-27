@@ -9,7 +9,7 @@ using System.Text;
 
 namespace Test
 {
-    public class FunctionTest
+    public class AzureFunctionTestBase
     {
         // Good learnings in https://youtu.be/UuM1m8WZxjw
 

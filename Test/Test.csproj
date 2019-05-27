@@ -18,10 +18,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="TestData\SynergyEmailDoubleLine.txt">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="TestData\SynergyEmail.txt">
+    <None Update="TestData\NewContactBody.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>

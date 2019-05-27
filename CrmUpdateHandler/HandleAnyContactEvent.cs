@@ -24,6 +24,9 @@ namespace CrmUpdateHandler
      * 
      * Mike Wiese, April 2019
      * 
+     * Notes:
+     *  Dependency Injection became available in May 2019: https://docs.microsoft.com/en-us/azure/azure-functions/functions-dotnet-dependency-injection
+     * 
      */
 
 

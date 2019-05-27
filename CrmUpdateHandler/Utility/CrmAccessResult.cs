@@ -6,7 +6,7 @@ namespace CrmUpdateHandler.Utility
     /// Represents the result of accessing the Crm to retrieve, update or create a contact. 
     /// Contains the details of a Contact, as well as the status flags from the CRUD operation itself. 
     /// </summary>
-    internal class CrmAccessResult
+    public class CrmAccessResult
     {
         public CrmAccessResult(CanonicalContact contact)
         {
