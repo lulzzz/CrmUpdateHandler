@@ -136,11 +136,11 @@ namespace CrmUpdateHandler
                 {
                     string objectId = contactEvent?.objectId;
                     string eventId = contactEvent?.eventId;
-                    string propertyName = contactEvent?.propertyName;
-                    string propertyValue = contactEvent?.propertyValue;
+                    string changePropertyName = contactEvent?.propertyName;
+                    string changePropertyValue = contactEvent?.propertyValue;
                     string subscriptionType = contactEvent?.subscriptionType;
                     string attemptNumber = contactEvent?.attemptNumber;
-                    log.LogInformation("Attempt number {0} for contact {1}: {2}", attemptNumber, objectId, subscriptionType);
+                    log.LogInformation("Attempt number {0} for contact {1}: {2} {3}", attemptNumber, objectId, subscriptionType, changePropertyName);
 
                     switch (subscriptionType)
                     {
@@ -149,7 +149,7 @@ namespace CrmUpdateHandler
                             curatedEvents.Add(new CuratedHubspotEvent(objectId, eventId));
                             break;
                         case "contact.propertyChange":
-                            curatedEvents.Add(new CuratedHubspotEvent(objectId, eventId, propertyName, propertyValue));
+                            curatedEvents.Add(new CuratedHubspotEvent(objectId, eventId, changePropertyName, changePropertyValue));
                             break;
                         default:
                             break;
@@ -183,7 +183,7 @@ namespace CrmUpdateHandler
                             // Extract some details of the contact, to send to Event Grid
                             newContactEvent = new NewContactEvent(contactEvent.EventId, contactResult.Payload);
                             newContacts.Add(newContactEvent);
-                            log.LogInformation("New Contact: " + contactResult.Payload.email);
+                            log.LogInformation("New Contact: {0}", contactResult.Payload.email);
                         }
                         else
                         {
@@ -211,6 +211,7 @@ namespace CrmUpdateHandler
 
                 await EventGridAdapter.RaiseUpdatedContactEventsAsync(updatedContacts);
 
+                //log.LogInformation(JsonConvert.SerializeObject(newContacts));
                 await EventGridAdapter.RaiseNewContactEventsAsync(newContacts);
 
                 

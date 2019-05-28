@@ -41,6 +41,7 @@ namespace CrmUpdateHandler.Utility
     /// <summary>
     /// This is the representation of a new Contact that is sent to Event Grid
     /// </summary>
+    /// <remarks>TODO: Try and refactor this class so it's a parent of <see cref="CanonicalContact"/> to eliminate the repeated fields.  </remarks>
     public class NewContactPayload
     {
         public NewContactPayload(CanonicalContact hubspotContact)
@@ -51,6 +52,7 @@ namespace CrmUpdateHandler.Utility
             this.phone = hubspotContact.phone;
             this.email = hubspotContact.email;
             this.jobTitle = hubspotContact.jobTitle;
+            this.leadStatus = hubspotContact.leadStatus;
 
             this.restUri = hubspotContact.restUri;
         }
@@ -78,9 +80,11 @@ namespace CrmUpdateHandler.Utility
         public string phone { get; private set; }
 
         public string email { get; private set; }
-        
+
         public string jobTitle { get; set; }
-        
+
+        public string leadStatus { get; set; }
+
         public string restUri { get; private set; }
     }
 }

@@ -12,8 +12,20 @@ using CrmUpdateHandler.Utility;
 namespace CrmUpdateHandler
 {
     /// <summary>
-    /// Entry point to create a new contact in the CRM or the day
+    /// Entry point that allows external applications to create a new contact in the CRM
     /// </summary>
+    /// <remarks>
+    ///     Integration Tests: (invoke this Azure function from Postman, or actually create a new contact in HubSpot)
+    ///         ALWAYS creates a Contact in HubSpot
+    ///         ALWAYS creates a new record in CrmContacts
+    ///         ALWAYS creates a folder in SharePoint
+    ///         IF leadStatus == 'Ready to Engage'
+    ///             The HubSpot contact lead status should = 'Ready to Engage'
+    ///             An Installation record should be created
+    ///         ELSE            
+    ///             The HubSpot contact lead status should = whatever was passed
+    ///             No Installation Record is created
+    /// </remarks>
     public class CrmContactCreator
     {
 
@@ -40,8 +52,11 @@ namespace CrmUpdateHandler
             string firstname = newContact?.firstname;
             string lastname = newContact?.lastname;
             string phone = newContact?.phone;
+            string leadStatus = newContact?.leadStatus;
 
-            var crmAccessResult = await HubspotAdapter.CreateHubspotContactAsync(email, firstname, lastname, phone);
+            log.LogInformation($"Creating {firstname} {lastname} as {email}");
+
+            var crmAccessResult = await HubspotAdapter.CreateHubspotContactAsync(email, firstname, lastname, phone, leadStatus);
 
             return crmAccessResult.StatusCode == System.Net.HttpStatusCode.OK
                 ? (ActionResult)new OkObjectResult(crmAccessResult.Payload)

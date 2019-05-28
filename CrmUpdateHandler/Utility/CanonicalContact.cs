@@ -62,5 +62,8 @@ namespace CrmUpdateHandler.Utility
         public string leadStatus { get; set; }
         public string oldLeadStatus { get; set; }
 
+        // Evidence of a crappy design: If adding a new field here, be sure to update NewContactPayload as well. 
+        // TODO: Look at refactoring things so that NewContactPayload is a parent of this class, to eliminate duplicated declarations.
+
     }
 }

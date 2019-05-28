@@ -20,10 +20,32 @@ namespace CrmUpdateHandler.Utility
         private static readonly string hapikey;
 
         /// <summary>
-        /// Represents the object sent to the HubSpot API to create a Contact
+        /// A structure that serialises into a request body suitable to create a Contact via the HubSpot API
         /// </summary>
         public class ContactProperties
         {
+            /// <summary>
+            /// Creates a new instance of the ContactProperties object
+            /// </summary>
+            public ContactProperties()
+            {
+                this.properties = new List<NewContactProperty>();
+            }
+
+            /// <summary>
+            /// Gets a reference to a collection of contact properties that serialises with the name "properties"
+            /// </summary>
+            public List<NewContactProperty> properties { get; private set; }
+
+            /// <summary>
+            /// Adds a new Contact property to the "properties" collection
+            /// </summary>
+            /// <param name="property"></param>
+            /// <param name="value"></param>
+            public void Add(string property, string value)
+            {
+                this.properties.Add(new NewContactProperty(property, value));
+            }
             /// <summary>
             /// The class that encapsulates the 'property' and the 'value' is internal
             /// </summary>
@@ -38,20 +60,7 @@ namespace CrmUpdateHandler.Utility
                 public string value { get; set; }
             }
 
-
-            public List<NewContactProperty> properties;
-
-            public ContactProperties()
-            {
-                this.properties = new List<NewContactProperty>();
-            }
-
-            public void Add(string property, string value)
-            {
-                this.properties.Add(new NewContactProperty(property, value));
-            }
         }
-
 
         /// <summary>
         /// Static constructor performs a one-time initialisation of the httpClient and hubspot API key
@@ -106,7 +115,7 @@ namespace CrmUpdateHandler.Utility
         /// <param name="lastname"></param>
         /// <returns></returns>
         /// <see cref="https://developers.hubspot.com/docs/methods/contacts/create_contact"/>
-        internal static async Task<CrmAccessResult> CreateHubspotContactAsync(string email, string firstname, string lastname, string primaryPhone)
+        internal static async Task<CrmAccessResult> CreateHubspotContactAsync(string email, string firstname, string lastname, string primaryPhone, string leadStatus)
         {
             // Check that the Hubspot API key was correctly retrieved in the static constructor
             if (string.IsNullOrEmpty(hapikey))
@@ -114,31 +123,16 @@ namespace CrmUpdateHandler.Utility
                 return new CrmAccessResult(HttpStatusCode.InternalServerError, "hapi key not found");
             }
 
-            var newContactProperties = new ContactProperties();
-
-            // Need to sanitise the properties received here. 
-            if (new EmailAddressAttribute().IsValid(email))
-            {
-                newContactProperties.Add("email", email);
-            }
-            else
+            if (!(new EmailAddressAttribute().IsValid(email)))
             {
                 return new CrmAccessResult(HttpStatusCode.InternalServerError, "New Contact email address not supplied");
             }
 
-            if (UserInputIsValid(firstname))
-            {
-                newContactProperties.Add("firstname", firstname);
-            }
+            ContactProperties newContactProperties = AssembleContactProperties(email, firstname, lastname, primaryPhone, leadStatus);
 
-            if (UserInputIsValid(lastname))
+            if (newContactProperties == null)
             {
-                newContactProperties.Add("lastname", lastname);
-            }
-
-            if (UserInputIsValid(primaryPhone))
-            {
-                newContactProperties.Add("phone", primaryPhone);
+                return new CrmAccessResult(HttpStatusCode.InternalServerError, "unhandled error assembling new contact command");
             }
 
             var url = string.Format($"https://api.hubapi.com/contacts/v1/contact/?hapikey={hapikey}");
@@ -169,6 +163,41 @@ namespace CrmUpdateHandler.Utility
             }
         }
 
+        internal static ContactProperties AssembleContactProperties(string email, string firstname, string lastname, string primaryPhone, string leadStatus)
+        {
+            var newContactProperties = new ContactProperties();
+
+            // Need to sanitise the properties received here. 
+            if (new EmailAddressAttribute().IsValid(email))
+            {
+                newContactProperties.Add("email", email);
+            }
+            else
+            {
+                // This should not occur, as it will be filtered out by the caller.
+                return null;
+            }
+
+            if (UserInputIsValid(firstname))
+            {
+                newContactProperties.Add("firstname", firstname);
+            }
+
+            if (UserInputIsValid(lastname))
+            {
+                newContactProperties.Add("lastname", lastname);
+            }
+
+            if (UserInputIsValid(primaryPhone))
+            {
+                newContactProperties.Add("phone", primaryPhone);
+            }
+
+            newContactProperties.Add("hs_lead_status", ResolveLeadStatus(leadStatus));
+
+            return newContactProperties;
+        }
+
         /// <summary>
         /// An extensible, centralised place to put validations for user input. Not sure it's adding value, but it's here to spark thought. Wish there was a library to do this.
         /// </summary>
@@ -181,6 +210,43 @@ namespace CrmUpdateHandler.Utility
             if (stringUnderTest.Contains("<script")) return false;
 
             return true;
+        }
+
+        /// <summary>
+        /// A special validator for the "lead status" enumeration, to ensure that the values for the hs_lead_status property
+        /// match the internal values configured in HubSpot
+        /// </summary>
+        /// <param name="leadStatus"></param>
+        /// <returns></returns>
+        private static string ResolveLeadStatus(string leadStatus)
+        {
+            string retval = string.Empty;
+
+            switch (leadStatus.ToUpper())
+            {
+                case "UNSURE":
+                    retval = "UNSURE";
+                    break;
+                case "NOT INTERESTED":
+                case "NOT_INTERESTED":
+                    retval = "NOT_INTERESTED";
+                    break;
+                case "READY TO ENGAGE":
+                case "READY_TO_ENGAGE":
+                    retval = "READY_TO_ENGAGE";
+                    break;
+                case "INSTALLED":
+                    retval = "INSTALLED";
+                    break;
+                case "WANTS ANOTHER SYSTEM":
+                case "WANTS_ANOTHER_SYSTEM":
+                    retval = "WANTS_ANOTHER_SYSTEM";
+                    break;
+                default:
+                    break;
+            }
+
+            return retval;
         }
 
         /// <summary>

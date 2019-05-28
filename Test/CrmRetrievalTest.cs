@@ -12,6 +12,7 @@ using System.Text;
 using System.Collections.Generic;
 using Microsoft.Extensions.Primitives;
 using System.Net.Http;
+using Newtonsoft.Json;
 
 namespace Test
 {
@@ -88,6 +89,16 @@ namespace Test
             Assert.True(string.IsNullOrEmpty(contactRetrievalResult.ErrorMessage), contactRetrievalResult.ErrorMessage);
             Assert.Equal(200, (int)contactRetrievalResult.StatusCode);
             Assert.Equal("jpittaway@brightcommunications.com.au", contactRetrievalResult.Payload.email);
+        }
+
+        [Fact]
+        public async Task newContact_Tester()
+        {
+            var newContactProperties = HubspotAdapter.AssembleContactProperties("email@example.com", "firstname", "lastname", "1234", "Unsure");
+
+            var dbg = JsonConvert.SerializeObject(newContactProperties);
+
+            Assert.NotNull(newContactProperties);
         }
     }
 }
