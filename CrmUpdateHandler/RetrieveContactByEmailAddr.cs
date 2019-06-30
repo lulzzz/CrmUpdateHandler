@@ -62,7 +62,7 @@ namespace CrmUpdateHandler
             // Retrieve the Hubspot contact corresponding to this email address
             try
             {
-                var contactResult = await HubspotAdapter.RetrieveHubspotContactByEmailAddr(email, fetchPreviousValues: false);
+                var contactResult = await HubspotAdapter.RetrieveHubspotContactByEmailAddr(email, fetchPreviousValues: false, log: log);
 
                 if (contactResult.StatusCode == HttpStatusCode.OK)
                 {

@@ -49,8 +49,10 @@ namespace CrmUpdateHandler.Utility
             this.contactId = hubspotContact.contactId;
             this.firstName = hubspotContact.firstName;
             this.lastName = hubspotContact.lastName;
+            this.preferredName = hubspotContact.preferredName;
             this.phone = hubspotContact.phone;
             this.email = hubspotContact.email;
+            this.customerAddress = hubspotContact.customerAddress;
             this.jobTitle = hubspotContact.jobTitle;
             this.leadStatus = hubspotContact.leadStatus;
 
@@ -77,7 +79,11 @@ namespace CrmUpdateHandler.Utility
 
         public string fullName => (this.firstName + " " + this.lastName).Trim(' ');
 
+        public string preferredName { get; private set; }
+
         public string phone { get; private set; }
+
+        public string customerAddress { get; private set; }
 
         public string email { get; private set; }
 

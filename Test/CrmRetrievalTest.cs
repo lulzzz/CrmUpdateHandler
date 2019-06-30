@@ -71,7 +71,8 @@ namespace Test
         [Fact]
         public async Task Janine_Pittaway_Is_Retrieved_From_HubSpot_By_Email()
         {
-            var contactRetrievalResult = await HubspotAdapter.RetrieveHubspotContactByEmailAddr("jpittaway@brightcommunications.com.au", fetchPreviousValues: true);
+            var logger = new Mock<ILogger>();
+            var contactRetrievalResult = await HubspotAdapter.RetrieveHubspotContactByEmailAddr("jpittaway@brightcommunications.com.au", fetchPreviousValues: true, log: logger.Object);
             Assert.True(string.IsNullOrEmpty(contactRetrievalResult.ErrorMessage), contactRetrievalResult.ErrorMessage);
             Assert.Equal(200, (int)contactRetrievalResult.StatusCode);
             Assert.Equal("001551", contactRetrievalResult.Payload.contactId);
@@ -85,20 +86,36 @@ namespace Test
         [Fact]
         public async Task Janine_Pittaway_Is_Retrieved_From_HubSpot_By_Id()
         {
-            var contactRetrievalResult = await HubspotAdapter.RetrieveHubspotContactById("1551", fetchPreviousValues: true);
+            var logger = new Mock<ILogger>();
+            var contactRetrievalResult = await HubspotAdapter.RetrieveHubspotContactById("1551", fetchPreviousValues: true, log: logger.Object);
             Assert.True(string.IsNullOrEmpty(contactRetrievalResult.ErrorMessage), contactRetrievalResult.ErrorMessage);
             Assert.Equal(200, (int)contactRetrievalResult.StatusCode);
             Assert.Equal("jpittaway@brightcommunications.com.au", contactRetrievalResult.Payload.email);
+            Assert.Equal("Janine Pittaway", contactRetrievalResult.Payload.fullName);
+            Assert.Equal("Janine.Pittaway", contactRetrievalResult.Payload.fullNamePeriodSeparated);
+            Assert.Equal("189 Sheoak Drive\nYallingup\nWA 6282", contactRetrievalResult.Payload.customerAddress);
         }
 
         [Fact]
         public async Task newContact_Tester()
         {
-            var newContactProperties = HubspotAdapter.AssembleContactProperties("email@example.com", "firstname", "lastname", "1234", "Unsure");
+            var newContactProperties = HubspotAdapter.AssembleContactProperties(
+                "email@example.com", 
+                "firstname", 
+                "lastname", 
+                "preferredName",
+                "08 97561234",
+                "123 example St",
+                "Apt 5",
+                "Bedrock",
+                "WA",
+                "9943",
+                "Unsure");
 
-            var dbg = JsonConvert.SerializeObject(newContactProperties);
+            var json = JsonConvert.SerializeObject(newContactProperties);
 
-            Assert.NotNull(newContactProperties);
+            Assert.NotNull(json);
+
         }
     }
 }

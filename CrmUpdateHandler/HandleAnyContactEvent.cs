@@ -166,7 +166,7 @@ namespace CrmUpdateHandler
                 {
                     string objectId = contactEvent.Vid;
 
-                    var contactResult = await HubspotAdapter.RetrieveHubspotContactById(objectId, fetchPreviousValues: true);
+                    var contactResult = await HubspotAdapter.RetrieveHubspotContactById(objectId, fetchPreviousValues: true, log: log);
 
                     NewContactEvent newContactEvent = null;
                     UpdatedContactEvent updatedContactEvent = null;

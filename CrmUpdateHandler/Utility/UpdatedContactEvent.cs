@@ -43,23 +43,17 @@ namespace CrmUpdateHandler.Utility
                 case "email":
                     eventTypeName = "Email";
                     break;
-                case "customer_name_on_bill":
-                    eventTypeName = "CustomerNameOnBill";
+                case "preferred_name":
+                    eventTypeName = "PreferredName";
                     break;
-                case "meter_number":
-                    eventTypeName = "MeterNumber";
-                    break;
-                case "synergy_account_no":
-                    eventTypeName = "SynergyAccountNo";
-                    break;
-                case "supply_address":
-                    eventTypeName = "SupplyAddress";
+                case "address":
+                case "city":
+                case "state":
+                case "zip":
+                    eventTypeName = "CustomerAddress";
                     break;
                 case "jobtitle":
                     eventTypeName = "JobTitle";
-                    break;
-                case "retailer_reference_number":
-                    eventTypeName = "RetailerReferenceNumber";
                     break;
                 default:
                     break;

@@ -23,7 +23,36 @@ namespace CrmUpdateHandler.Utility
             this.contactId = vid.PadLeft(6, '0');
         }
 
-        public string contactId { get; private set; }
+        public CanonicalContact(
+            string vid, 
+            string firstName,
+            string lastName,
+            string preferredName,
+            string phone,
+            string email,
+            string customerAddress,
+            //string jobTitle,
+            string leadStatus)
+            :this(vid)
+        {
+            this.firstName = firstName;
+
+            this.lastName = lastName;
+
+            this.preferredName = preferredName;
+
+            this.phone = phone;
+
+            this.email = email;
+
+            this.customerAddress = customerAddress;
+
+            //this.jobTitle = jobTitle;
+
+            this.leadStatus = leadStatus;
+        }
+
+        public string contactId { get; set; }
         public string restUri { get; set; }
 
 
@@ -47,11 +76,17 @@ namespace CrmUpdateHandler.Utility
         public string oldFullName => (this.oldFirstName + " " + this.oldLastName).Trim(' ');
 
 
+        public string preferredName { get; set; }
+        public string oldPreferredName { get; set; }
+
         public string phone { get; set; }
         public string oldPhone { get; set; }
 
         public string email { get; set; }
         public string oldEmail { get; set; }
+
+        public string customerAddress { get; set; }
+        public string oldcustomerAddress { get; set; }
 
         public string jobTitle { get; set; }
         public string oldJobTitle { get; set; }
