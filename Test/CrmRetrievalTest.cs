@@ -34,7 +34,7 @@ namespace Test
                 phone = "867 5309"
             };
 
-            var desiredResult = new CrmAccessResult(data);
+            var desiredResult = new HubSpotContactResult(data);
 
             // Set up a retval that the mock HubSpotAdapter might return
             hubspotAdapter.Setup(p => p.CreateHubspotContactAsync(

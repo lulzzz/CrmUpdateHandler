@@ -21,6 +21,7 @@ namespace CrmUpdateHandler.Utility
         private static readonly HttpClient httpClient;
 
         private static readonly string hapikey;
+        private static readonly string sandbox_hapikey;
 
         /// <summary>
         /// A structure that serialises into a request body suitable to create a Contact via the HubSpot API
@@ -32,13 +33,13 @@ namespace CrmUpdateHandler.Utility
             /// </summary>
             public ContactProperties()
             {
-                this.properties = new List<NewContactProperty>();
+                this.properties = new List<PropertyValuePair>();
             }
 
             /// <summary>
             /// Gets a reference to a collection of contact properties that serialises with the name "properties"
             /// </summary>
-            public List<NewContactProperty> properties { get; private set; }
+            public List<PropertyValuePair> properties { get; private set; }
 
             /// <summary>
             /// Adds a new Contact property to the "properties" collection
@@ -47,15 +48,15 @@ namespace CrmUpdateHandler.Utility
             /// <param name="value"></param>
             public void Add(string property, string value)
             {
-                this.properties.Add(new NewContactProperty(property, value));
+                this.properties.Add(new PropertyValuePair(property, value));
             }
             /// <summary>
             /// The class that encapsulates the 'property' and the 'value' is internal
             /// </summary>
             [DebuggerDisplay("{property} = {value}")]
-            public class NewContactProperty
+            public class PropertyValuePair
             {
-                public NewContactProperty(string property, string value)
+                public PropertyValuePair(string property, string value)
                 {
                     this.property = property;
                     this.value = value;
@@ -76,6 +77,7 @@ namespace CrmUpdateHandler.Utility
             httpClient = new HttpClient();
 
             hapikey = Environment.GetEnvironmentVariable("hapikey", EnvironmentVariableTarget.Process);
+            sandbox_hapikey = Environment.GetEnvironmentVariable("sandbox_hapikey", EnvironmentVariableTarget.Process);
         }
 
         /// <summary>
@@ -84,7 +86,7 @@ namespace CrmUpdateHandler.Utility
         /// <param name="contactId">The Hubspot Contact Id</param>
         /// <param name="fetchPreviousValues">A value to indicate whether to populate the oldXXX properties from the Hubspot 'versions' array</param>
         /// <returns></returns>
-        internal static async Task<CrmAccessResult> RetrieveHubspotContactById(string contactId, bool fetchPreviousValues, ILogger log)
+        internal static async Task<HubSpotContactResult> RetrieveHubspotContactById(string contactId, bool fetchPreviousValues, ILogger log)
         {
             // Formulate the url:
             // GET /contacts/v1/contact/vid/:vid/profile
@@ -102,10 +104,13 @@ namespace CrmUpdateHandler.Utility
         /// <returns>A Type containing the Contact</returns>
         /// <remarks>Sometimes we will want the old properties and the new (which Hubspot gives us). Other times, we will
         /// just want the current properties, as we will override them with an externally-sourced value</remarks>
-        internal static async Task<CrmAccessResult> RetrieveHubspotContactByEmailAddr(string email, bool fetchPreviousValues, ILogger log)
+        internal static async Task<HubSpotContactResult> RetrieveHubspotContactByEmailAddr(string email, bool fetchPreviousValues, ILogger log, bool isTest=false)
         {
+            // Check that the appropriate Hubspot API key was correctly retrieved in the static constructor
+            var activeHapiKey = isTest ? sandbox_hapikey : hapikey;
+
             // See https://developers.hubspot.com/docs/methods/contacts/get_contact_by_email
-            var url = string.Format($"https://api.hubapi.com/contacts/v1/contact/email/{email}/profile?hapikey={hapikey}");
+            var url = string.Format($"https://api.hubapi.com/contacts/v1/contact/email/{email}/profile?hapikey={activeHapiKey}");
             //log.LogInformation("url: {0}", url);
 
             return await RetrieveHubspotContactWithUrl(url, fetchPreviousValues, log);
@@ -119,7 +124,7 @@ namespace CrmUpdateHandler.Utility
         /// <param name="lastname"></param>
         /// <returns></returns>
         /// <see cref="https://developers.hubspot.com/docs/methods/contacts/create_contact"/>
-        internal static async Task<CrmAccessResult> CreateHubspotContactAsync(
+        internal static async Task<HubSpotContactResult> CreateHubspotContactAsync(
             string email, 
             string firstname, 
             string lastname, 
@@ -134,17 +139,21 @@ namespace CrmUpdateHandler.Utility
             ILogger log,
             bool isTest)
         {
+            // Check that the appropriate Hubspot API key was correctly retrieved in the static constructor
+            var activeHapiKey = isTest ? sandbox_hapikey : hapikey;
+
             // Check that the Hubspot API key was correctly retrieved in the static constructor
-            if (string.IsNullOrEmpty(hapikey))
+            if (string.IsNullOrEmpty(activeHapiKey))
             {
-                return new CrmAccessResult(HttpStatusCode.InternalServerError, "Hubspot API key not found");
+                return new HubSpotContactResult(HttpStatusCode.InternalServerError, "Hubspot API key not found");
             }
 
             if (!(new EmailAddressAttribute().IsValid(email)))
             {
-                return new CrmAccessResult(HttpStatusCode.InternalServerError, "New Contact email address not supplied");
+                return new HubSpotContactResult(HttpStatusCode.InternalServerError, "New Contact email address not supplied");
             }
 
+            // To send a Contact to Hubspot via the API we need an object that will serialise into a bunch of {property, value} pairs
             ContactProperties newContactProperties = AssembleContactProperties(
                 email, 
                 firstname, 
@@ -160,23 +169,12 @@ namespace CrmUpdateHandler.Utility
 
             if (newContactProperties == null)
             {
-                return new CrmAccessResult(HttpStatusCode.InternalServerError, "unhandled error assembling new contact command");
+                return new HubSpotContactResult(HttpStatusCode.InternalServerError, "unhandled error assembling new contact command");
             }
 
-            var url = string.Format($"https://api.hubapi.com/contacts/v1/contact/?hapikey={hapikey}");
-            if (isTest)
-            {
-                // Sandbox hapikey
-                url = string.Format($"https://api.hubapi.com/contacts/v1/contact/?hapikey=7f635d07-da56-4a62-ab46-906879ce22e2");
-            }
+            var url = string.Format($"https://api.hubapi.com/contacts/v1/contact/?hapikey={activeHapiKey}");
 
-            var dbg = JsonConvert.SerializeObject(newContactProperties);
-
-            //if (isTest)
-            //{
-            //    var dbgCanonicalContact = ConvertContactPropertiesToDebugContact(newContactProperties);
-            //    return new CrmAccessResult(dbgCanonicalContact);
-            //}
+            //var dbg = JsonConvert.SerializeObject(newContactProperties);
 
             // Need to POST to Hubspot to create a contact
             log.LogInformation($"Posting to HubSpot to create {firstname} {lastname}");
@@ -193,14 +191,9 @@ namespace CrmUpdateHandler.Utility
 
                 var newContactResponse = ConvertHubspotJsonToCanonicalContact(resultText, fetchPreviousValues: false, log: log);
 
-                if (isTest)
-                {
-                    newContactResponse.contactId = "002001";    // Always tesy webhookssen
-                }
-
                 log.LogInformation("New Contact identifier is {0}", newContactResponse.contactId);
 
-                var retval = new CrmAccessResult(newContactResponse);
+                var retval = new HubSpotContactResult(newContactResponse);
                 return retval;
             }
             else
@@ -208,9 +201,77 @@ namespace CrmUpdateHandler.Utility
                 // Some other error - return the status code and body to the caller of the function
                 string resultText = await content.ReadAsStringAsync();
                 log.LogError("Hubspot creation failed: {0}: {1}", response.StatusCode, resultText);
-                return new CrmAccessResult(response.StatusCode, resultText);
+                return new HubSpotContactResult(response.StatusCode, resultText);
             }
         }
+
+        /// <summary>
+        /// Create a Deal in Hubspot
+        /// </summary>
+        /// <returns></returns>
+        internal static async Task<HubSpotDealResult> CreateHubSpotDealAsync(
+            int vid,
+            string dealname,
+            string salesPipeline,
+            string initialStage,
+            ILogger log,
+            bool isTest)
+        {
+            // Check that the appropriate Hubspot API key was correctly retrieved in the static constructor
+            var activeHapiKey = isTest ? sandbox_hapikey : hapikey;
+
+            if (string.IsNullOrEmpty(activeHapiKey))
+            {
+                return new HubSpotDealResult(HttpStatusCode.InternalServerError, "Hubspot API key not found");
+            }
+
+            // TODO: Invoke  https://api.hubapi.com/crm-pipelines/v1/pipelines/deals?hapikey=d7f9cc78-a6d6-4ea3-8983-72314b8d80ed
+            // to retrieve all pipelines. Select the one with the label matching SalesPipeline, and get its pipelineId. 
+            // Then select the stage with the label matching initialStage and get its stageId
+            // log a bug with HubSpot, tell them that their error message on a "stage not found" is wrong - they use states from the default pipeline, not the nominated pipeline
+
+            var newHubspotDeal = new HubSpotDealCreationStructure(vid, dealname);
+            newHubspotDeal.Add("pipeline", salesPipeline);
+            newHubspotDeal.Add("dealstage", initialStage);
+
+            var url = string.Format($"https://api.hubapi.com/deals/v1/deal/?hapikey={activeHapiKey}");
+            var dbg = JsonConvert.SerializeObject(newHubspotDeal);
+
+            log.LogInformation($"Posting to HubSpot to create a Deal for {vid}");
+            HttpResponseMessage response = await httpClient.PostAsJsonAsync(url, newHubspotDeal);
+
+            HttpContent content = response.Content;
+
+            // Check Status Code. 
+            if (response.StatusCode == HttpStatusCode.OK)
+            {
+                log.LogInformation("Hubspot creation OK");
+
+                // All good. Deserialise the response body as a specially-shaped HubSpotDeal object
+
+                // Can we deserialise the content as a HubSpotDeal?
+                string contentString = await content.ReadAsStringAsync();   // debug: But this is what we must deserialise into a hubspot deal.
+                var hubspotDeal = await content.ReadAsAsync<HubSpotDeal>();
+
+                if (isTest)
+                {
+                    //newContactResponse.contactId = "002001";    // Always testy webhookssen
+                }
+
+                log.LogInformation("New Deal identifier is {0}", hubspotDeal.dealId);
+
+                var retval = new HubSpotDealResult(hubspotDeal);
+                return retval;
+            }
+            else
+            {
+                // Some other error - return the status code and body to the caller of the function
+                string resultText = await content.ReadAsStringAsync();
+                log.LogError("Hubspot deal creation failed: {0}: {1}", response.StatusCode, resultText);
+                return new HubSpotDealResult(response.StatusCode, resultText);
+            }
+        }
+
 
         /// <summary>
         /// Convert a bunch of properties to the name-value structure required by the HubSpot 'create' API
@@ -391,17 +452,11 @@ namespace CrmUpdateHandler.Utility
         /// <summary>
         /// Utility method that retrieves a Hubspot contact from the API and extracts the most important parameters into a structure.
         /// </summary>
-        /// <param name="url">A valid GET url for retrieving a Hubspot contact</param>
+        /// <param name="url">A valid GET url for retrieving a Hubspot contact. It's expected to have the hapikey on the url</param>
         /// <param name="fetchPreviousValues"></param>
         /// <returns></returns>
-        private static async Task<CrmAccessResult> RetrieveHubspotContactWithUrl(string url, bool fetchPreviousValues, ILogger log)
+        private static async Task<HubSpotContactResult> RetrieveHubspotContactWithUrl(string url, bool fetchPreviousValues, ILogger log)
         {
-            // Check that the Hubspot API key was correctly retrieved in the static constructor
-            if (string.IsNullOrEmpty(hapikey))
-            {
-                return new CrmAccessResult(HttpStatusCode.InternalServerError, "hapi key not found");
-            }
-
             // Go get the contact from HubSpot using the supplied url
             HttpResponseMessage response = await httpClient.GetAsync(url);
             HttpContent content = response.Content;
@@ -414,19 +469,19 @@ namespace CrmUpdateHandler.Utility
                 //log.LogInformation(resultText);
                 var canonicalContact = ConvertHubspotJsonToCanonicalContact(resultText, fetchPreviousValues, log);
 
-                var retval = new CrmAccessResult(canonicalContact);
+                var retval = new HubSpotContactResult(canonicalContact);
                 return retval;
             }
             else if (response.StatusCode == HttpStatusCode.NotFound)
             {
                 // NotFound error
-                return new CrmAccessResult(response.StatusCode);
+                return new HubSpotContactResult(response.StatusCode);
             }
             else
             {
                 // Some other error
                 string resultText = await content.ReadAsStringAsync();
-                return new CrmAccessResult(response.StatusCode, resultText);
+                return new HubSpotContactResult(response.StatusCode, resultText);
             }
 
         }

@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using CrmUpdateHandler.Utility;
 using System.Net.Http;
+using System.Text;
 
 namespace CrmUpdateHandler
 {
@@ -43,7 +44,7 @@ namespace CrmUpdateHandler
         }
 
         /// <summary>
-        /// 
+        /// The world-facing endpoint that creates a HubSpot Contact and an Installation all in one.
         /// </summary>
         /// <param name="req"></param>
         /// <param name="log"></param>
@@ -146,29 +147,51 @@ namespace CrmUpdateHandler
                 return new BadRequestObjectResult(crmAccessResult.ErrorMessage);
             }
 
-            // Now we need to add the CRMID to the structure, and create a record in the Installations table
-            userdata.contact.crmid = crmAccessResult.Payload.contactId;
-
             log.LogInformation($"{firstname} {lastname} ({email}) created as {crmAccessResult.Payload.contactId}");
 
-            // The structure we must post to the 'CreateInstallation' endpoint is the same structure
-            // as we receive in this method, with the addition of the contract.crmid property. Handy.
-            var azureFunctionEndpoint = Environment.GetEnvironmentVariable("CreateNewInstallationAzureFunctionEndpoint", EnvironmentVariableTarget.Process);
+            // Create a HubSpot Deal
+            // TODO
 
-            if (string.IsNullOrEmpty(azureFunctionEndpoint))
+            // Now we must create an Installations record
+            // The structure we must post to the 'CreateInstallation' endpoint is the same structure
+            // as we receive in this method, with the addition of 
+            //      (1) the contract.crmid property
+            //      (2) a 'sendContract' flag that tells the Installation-creator to send a contract when the Installation record is created
+            userdata.contact.crmid = crmAccessResult.Payload.contactId;
+            userdata.sendContract = true;
+
+            // To create a record in the Installations table we post to an Azure function https://plicoinstallationhandler.azurewebsites.net/api/CreateInstallation
+            var createInstallationEndpoint = Environment.GetEnvironmentVariable("CreateNewInstallationAzureFunctionEndpoint", EnvironmentVariableTarget.Process);
+
+            if (string.IsNullOrEmpty(createInstallationEndpoint))
             {
                 return new BadRequestObjectResult("CreateNewInstallationAzureFunctionEndpoint was not configured");
             }
 
-            log.LogInformation($"Creating installation record via {azureFunctionEndpoint}");
-            var newInstallationRequestBody = new StringContent(userdata.ToString());
-            var response = await azureFunctionHttpClient.PostAsync(azureFunctionEndpoint, newInstallationRequestBody);
-
-            if (response.StatusCode != System.Net.HttpStatusCode.OK)
+            log.LogInformation($"Creating installation record via {createInstallationEndpoint}");
+            string installationData = userdata.ToString();
+            var newInstallationRequestBody = new StringContent(installationData, Encoding.UTF8, "application/json");    // Sets Content-Type header
+            if (isTest)
             {
-                log.LogError($"Error {response.StatusCode} invoking installation-creator");
-                string errmsg = await response.Content.ReadAsStringAsync();
-                return new BadRequestObjectResult(errmsg);
+                // Just log the installation information 
+                log.LogInformation("Test mode: Not proceeding with Installation-creation. Installation data follows");
+                log.LogInformation(installationData);
+
+                // TODO: Could we do more? Pass a 'test' flag to the next stages? 
+            }
+            else
+            {
+                // We're doing this for real. Proceed with the creation of a Installation and the sending of a contract
+                var response = await azureFunctionHttpClient.PostAsync(createInstallationEndpoint, newInstallationRequestBody);
+
+                if (response.StatusCode != System.Net.HttpStatusCode.OK)
+                {
+                    log.LogError($"Error {response.StatusCode} invoking installation-creator");
+                    string errmsg = await response.Content.ReadAsStringAsync();
+                    return new BadRequestObjectResult(errmsg);
+                }
+
+                // TODO Invoke HubSpotAdapter.CreateHubSpotDealAsync() to create a deal in a way that inhibits the creation of an Installation record
             }
 
             return (ActionResult)new OkObjectResult(crmAccessResult.Payload);

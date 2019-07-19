@@ -10,10 +10,10 @@ namespace CrmUpdateHandler.Utility
     /// </summary>
     public interface IHubSpotAdapter
     {
-        Task<CrmAccessResult> RetrieveHubspotContactById(string contactId, bool fetchPreviousValues);
+        Task<HubSpotAccessResult> RetrieveHubspotContactById(string contactId, bool fetchPreviousValues);
 
-        Task<CrmAccessResult> RetrieveHubspotContactByEmailAddr(string email, bool fetchPreviousValues);
+        Task<HubSpotAccessResult> RetrieveHubspotContactByEmailAddr(string email, bool fetchPreviousValues);
 
-        Task<CrmAccessResult> CreateHubspotContactAsync(string email, string firstname, string lastname, string primaryPhone);
+        Task<HubSpotAccessResult> CreateHubspotContactAsync(string email, string firstname, string lastname, string primaryPhone);
     }
 }
