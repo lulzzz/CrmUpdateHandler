@@ -150,7 +150,7 @@ namespace CrmUpdateHandler
             log.LogInformation($"{firstname} {lastname} ({email}) created as {crmAccessResult.Payload.contactId}");
 
             // Create a HubSpot Deal
-            // TODO
+            // ... or maybe not ... (meeting 2019-07-22)
 
             // Now we must create an Installations record
             // The structure we must post to the 'CreateInstallation' endpoint is the same structure
@@ -168,6 +168,12 @@ namespace CrmUpdateHandler
                 return new BadRequestObjectResult("CreateNewInstallationAzureFunctionEndpoint was not configured");
             }
 
+            // Pass on the test flag to the installation creator
+            if (isTest)
+            {
+                createInstallationEndpoint += "?test";
+            }
+
             log.LogInformation($"Creating installation record via {createInstallationEndpoint}");
             string installationData = userdata.ToString();
             var newInstallationRequestBody = new StringContent(installationData, Encoding.UTF8, "application/json");    // Sets Content-Type header
@@ -177,7 +183,7 @@ namespace CrmUpdateHandler
                 log.LogInformation("Test mode: Not proceeding with Installation-creation. Installation data follows");
                 log.LogInformation(installationData);
 
-                // TODO: Could we do more? Pass a 'test' flag to the next stages? 
+                // TODO: Could we do more? Pass a 'test' flag to the next stages? Yes, see above
             }
             else
             {
@@ -191,7 +197,7 @@ namespace CrmUpdateHandler
                     return new BadRequestObjectResult(errmsg);
                 }
 
-                // TODO Invoke HubSpotAdapter.CreateHubSpotDealAsync() to create a deal in a way that inhibits the creation of an Installation record
+                
             }
 
             return (ActionResult)new OkObjectResult(crmAccessResult.Payload);

@@ -225,7 +225,7 @@ namespace CrmUpdateHandler.Utility
                 return new HubSpotDealResult(HttpStatusCode.InternalServerError, "Hubspot API key not found");
             }
 
-            // TODO: Invoke  https://api.hubapi.com/crm-pipelines/v1/pipelines/deals?hapikey=d7f9cc78-a6d6-4ea3-8983-72314b8d80ed
+            // TODO: Invoke  https://api.hubapi.com/crm-pipelines/v1/pipelines/deals?hapikey={key}
             // to retrieve all pipelines. Select the one with the label matching SalesPipeline, and get its pipelineId. 
             // Then select the stage with the label matching initialStage and get its stageId
             // log a bug with HubSpot, tell them that their error message on a "stage not found" is wrong - they use states from the default pipeline, not the nominated pipeline

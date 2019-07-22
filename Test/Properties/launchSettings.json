@@ -1,10 +1,7 @@
 {
   "profiles": {
     "Test": {
-      "commandName": "Project",
-      "environmentVariables": {
-        "sandbox_hapikey": "d7f9cc78-a6d6-4ea3-8983-72314b8d80ed"
-      }
+      "commandName": "Project"
     }
   }
 }
