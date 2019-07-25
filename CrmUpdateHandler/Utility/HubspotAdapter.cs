@@ -86,11 +86,14 @@ namespace CrmUpdateHandler.Utility
         /// <param name="contactId">The Hubspot Contact Id</param>
         /// <param name="fetchPreviousValues">A value to indicate whether to populate the oldXXX properties from the Hubspot 'versions' array</param>
         /// <returns></returns>
-        internal static async Task<HubSpotContactResult> RetrieveHubspotContactById(string contactId, bool fetchPreviousValues, ILogger log)
+        internal static async Task<HubSpotContactResult> RetrieveHubspotContactById(string contactId, bool fetchPreviousValues, ILogger log, bool isTest = false)
         {
+            // Check that the appropriate Hubspot API key was correctly retrieved in the static constructor
+            var activeHapiKey = isTest ? sandbox_hapikey : hapikey;
+
             // Formulate the url:
             // GET /contacts/v1/contact/vid/:vid/profile
-            var url = string.Format($"https://api.hubapi.com/contacts/v1/contact/vid/{contactId}/profile?hapikey={hapikey}");
+            var url = string.Format($"https://api.hubapi.com/contacts/v1/contact/vid/{contactId}/profile?hapikey={activeHapiKey}");
             //log.LogInformation("url: {0}", url);
 
             return await RetrieveHubspotContactWithUrl(url, fetchPreviousValues, log);
@@ -136,6 +139,7 @@ namespace CrmUpdateHandler.Utility
             string state,
             string postcode,
             string leadStatus,
+            bool installationRecordExists,
             ILogger log,
             bool isTest)
         {
@@ -165,7 +169,8 @@ namespace CrmUpdateHandler.Utility
                 city,
                 state,
                 postcode,
-                leadStatus);
+                leadStatus,
+                installationRecordExists);
 
             if (newContactProperties == null)
             {
@@ -225,7 +230,7 @@ namespace CrmUpdateHandler.Utility
                 return new HubSpotDealResult(HttpStatusCode.InternalServerError, "Hubspot API key not found");
             }
 
-            // TODO: Invoke  https://api.hubapi.com/crm-pipelines/v1/pipelines/deals?hapikey={key}
+            // TODO: Invoke  https://api.hubapi.com/crm-pipelines/v1/pipelines/deals?hapikey={activeHapiKey}
             // to retrieve all pipelines. Select the one with the label matching SalesPipeline, and get its pipelineId. 
             // Then select the stage with the label matching initialStage and get its stageId
             // log a bug with HubSpot, tell them that their error message on a "stage not found" is wrong - they use states from the default pipeline, not the nominated pipeline
@@ -298,7 +303,8 @@ namespace CrmUpdateHandler.Utility
             string city,
             string state,
             string postcode,
-            string leadStatus)
+            string leadStatus,
+            bool installationRecordExists)
         {
             var newContactProperties = new ContactProperties();
 
@@ -361,35 +367,9 @@ namespace CrmUpdateHandler.Utility
 
             newContactProperties.Add("hs_lead_status", ResolveLeadStatus(leadStatus));
             newContactProperties.Add("lifecyclestage", "lead"); // They are not just a subscriber
+            newContactProperties.Add("installationrecordexists", installationRecordExists?"true":"false"); 
 
             return newContactProperties;
-        }
-
-        /// <summary>
-        /// Fakes a returnable Contact structure, as if the contact really had been creatd in HubSpot.
-        /// </summary>
-        /// <param name="newContactProperties"></param>
-        /// <returns></returns>
-        private static CanonicalContact ConvertContactPropertiesToDebugContact(ContactProperties newContactProperties)
-        {
-            var streetAddress = newContactProperties.properties.FirstOrDefault(p => p.property == "address")?.value;
-            var city = newContactProperties.properties.FirstOrDefault(p => p.property == "city")?.value;
-            var state = newContactProperties.properties.FirstOrDefault(p => p.property == "state")?.value;
-            var zip = newContactProperties.properties.FirstOrDefault(p => p.property == "zip")?.value;
-            var customerAddress = AssembleCustomerAddress(streetAddress, city, state, zip);
-
-            var retval = new CanonicalContact(
-                "9999",
-                newContactProperties.properties.FirstOrDefault(p => p.property == "firstname")?.value,
-                newContactProperties.properties.FirstOrDefault(p => p.property == "lastname")?.value,
-                newContactProperties.properties.FirstOrDefault(p => p.property == "preferred_name")?.value,
-                newContactProperties.properties.FirstOrDefault(p => p.property == "phone")?.value,
-                newContactProperties.properties.FirstOrDefault(p => p.property == "email")?.value,
-                customerAddress,
-                newContactProperties.properties.FirstOrDefault(p => p.property == "hs_lead_status")?.value
-                );
-
-            return retval;
         }
 
         /// <summary>
@@ -509,7 +489,8 @@ namespace CrmUpdateHandler.Utility
             string customerAddress = AssembleCustomerAddress(contact.properties);
             string jobTitle = contact.properties.jobtitle?.value;
             string leadStatus = contact.properties.hs_lead_status?.value;
-
+            string installationrecordString = contact.properties.installationrecordexists?.value ?? "false";   // raw values are null, "false", "true" and ""
+            bool installationrecordExists = (installationrecordString == "true");
 
             var oldFirstName = firstName;
             var oldLastName = lastName;
@@ -545,7 +526,8 @@ namespace CrmUpdateHandler.Utility
                 phone,
                 email,
                 customerAddress,
-                leadStatus)
+                leadStatus, 
+                installationrecordExists)
             {
                 oldFirstName = oldFirstName,
                 oldLastName = oldLastName,

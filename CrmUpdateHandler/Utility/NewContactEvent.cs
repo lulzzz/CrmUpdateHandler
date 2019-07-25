@@ -10,8 +10,7 @@ namespace CrmUpdateHandler.Utility
     public class NewContactEvent
     {
         /// <summary>
-        /// We get a complex structure back from Hubspot when we retrieve a Contact. We 
-        /// only need a bit of it.
+        /// Creates an event structure containing a CanonicalContact, suitable for passing to an EventGrid topic
         /// </summary>
         public NewContactEvent(string eventId, CanonicalContact hubSpotContact)
         {
@@ -20,6 +19,7 @@ namespace CrmUpdateHandler.Utility
             subject = "Starling.Crm.ContactCreated";
             this.eventTime = DateTime.UtcNow;
             data = new NewContactPayload(hubSpotContact);
+
         }
 
         public string id { get; private set; }
@@ -56,6 +56,7 @@ namespace CrmUpdateHandler.Utility
             this.jobTitle = hubspotContact.jobTitle;
             this.leadStatus = hubspotContact.leadStatus;
 
+            this.installationRecordExists = hubspotContact.installationRecordExists;
             this.restUri = hubspotContact.restUri;
         }
 
@@ -92,5 +93,11 @@ namespace CrmUpdateHandler.Utility
         public string leadStatus { get; set; }
 
         public string restUri { get; private set; }
+
+        /// <summary>
+        /// An app can set the InstallationRecordExists custom property to suppress the creation of an Installation record that 
+        /// would normally happen when a customer record is created in the Ready To Engage state
+        /// </summary>
+        public bool installationRecordExists { get; set; }
     }
 }

@@ -21,10 +21,15 @@ namespace Test.TestFixtures
         //Instantiate a Singleton of the Semaphore with a value of 1. This means that only 1 thread can be granted access at a time.
         static SemaphoreSlim semaphoreSlim = new SemaphoreSlim(1, 1); 
 
+
         public TestContactCreationFixture()
         {
             
         }
+
+        public string TestContactEmailAddress => "testcontactcreationfixture@example.com";
+
+        public string TestContactId => this.contact.contactId;
 
         /// <summary>
         /// Creates the test contact in the HubSpot sandbox if necessary
@@ -41,10 +46,10 @@ namespace Test.TestFixtures
             {
                 if (this.contact == null)
                 {
-                    var emailAddr = "TestContactCreationFixture@example.com";
+                    const bool installationRecordexists = true;
 
                     var contactResult = await HubspotAdapter.CreateHubspotContactAsync(
-                        emailAddr,
+                        this.TestContactEmailAddress,
                         "Autocreated",
                         "TestUser",
                         "Auto",
@@ -55,13 +60,14 @@ namespace Test.TestFixtures
                         "WA",
                         "6000",
                         "Ready To Engage",
+                        installationRecordexists,
                         log,
                         true);
 
                     if (contactResult.StatusCode == System.Net.HttpStatusCode.Conflict)
                     {
                         // Contact already exists - so just use that one
-                        contactResult = await HubspotAdapter.RetrieveHubspotContactByEmailAddr(emailAddr, false, log, true);
+                        contactResult = await HubspotAdapter.RetrieveHubspotContactByEmailAddr(this.TestContactEmailAddress, false, log, true);
                     }
 
                     if (contactResult.StatusCode != System.Net.HttpStatusCode.OK)

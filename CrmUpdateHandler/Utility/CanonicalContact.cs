@@ -32,7 +32,8 @@ namespace CrmUpdateHandler.Utility
             string email,
             string customerAddress,
             //string jobTitle,
-            string leadStatus)
+            string leadStatus,
+            bool installationRecordExists)
             :this(vid)
         {
             this.firstName = firstName;
@@ -50,6 +51,8 @@ namespace CrmUpdateHandler.Utility
             //this.jobTitle = jobTitle;
 
             this.leadStatus = leadStatus;
+
+            this.installationRecordExists = installationRecordExists;
         }
 
         public string contactId { get; set; }
@@ -96,6 +99,12 @@ namespace CrmUpdateHandler.Utility
         /// </summary>
         public string leadStatus { get; set; }
         public string oldLeadStatus { get; set; }
+
+        /// <summary>
+        /// An app can set the InstallationRecordExists custom property to suppress the creation of an Installation record that 
+        /// would normally happen when a customer record is created in the Ready To Engage state
+        /// </summary>
+        public bool installationRecordExists { get; set; }
 
         // Evidence of a crappy design: If adding a new field here, be sure to update NewContactPayload as well. 
         // TODO: Look at refactoring things so that NewContactPayload is a parent of this class, to eliminate duplicated declarations.

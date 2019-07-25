@@ -13,11 +13,27 @@ using System.Collections.Generic;
 using Microsoft.Extensions.Primitives;
 using System.Net.Http;
 using Newtonsoft.Json;
+using Test.TestFixtures;
 
 namespace Test
 {
-    public class CrmRetrievalTest : AzureFunctionTestBase
+    public class CrmRetrievalTest : AzureFunctionTestBase, IClassFixture<TestContactCreationFixture>, IClassFixture<EnvironmentSetupFixture>
     {
+        private TestContactCreationFixture contactCreationFixture;
+        private EnvironmentSetupFixture environmentSetupFixture;
+
+        /// <summary>
+        /// Constructor is called for every test. It is passed the fixture, which is instantiated only once, just
+        /// before the first test is run, to set the environment variables used by the test
+        /// </summary>
+        /// <param name="contactCreationFixture"></param>
+        public CrmRetrievalTest(TestContactCreationFixture contactCreationFixture, EnvironmentSetupFixture environmentSetupFixture)
+        {
+            this.contactCreationFixture = contactCreationFixture;
+            this.environmentSetupFixture = environmentSetupFixture;
+        }
+
+
         // Wait on Microsoft to fix their bugs and allow Azure Functions as instantiable classes. Then we
         // can maybe do dependency injection to enable testing. 
         // THIS TEST WILL ACTUALLY CREATE A CONTACT IN THE DB. THATS WHY WE NEED TO UNDERSTAND DI BETTER
@@ -64,18 +80,24 @@ namespace Test
 
 
         /// <summary>
-        /// This test relies on an environment variable called 'hapikey' being correctly set. Note that after setting this, Visual Studio must be restarted
-        /// in order to see it. 
+        /// This test relies on an environment variable called 'hapikey' being correctly set. It's in 
+        /// Properties\launchSettings.json which is not committed to github
         /// </summary>
         /// <returns></returns>
         [Fact]
-        public async Task Janine_Pittaway_Is_Retrieved_From_HubSpot_By_Email()
+        public async Task Test_Contact_Is_Retrieved_From_HubSpot_By_Email()
         {
             var logger = new Mock<ILogger>();
-            var contactRetrievalResult = await HubspotAdapter.RetrieveHubspotContactByEmailAddr("jpittaway@brightcommunications.com.au", fetchPreviousValues: true, log: logger.Object);
+            var contact = await contactCreationFixture.CreateTestContact();
+
+            var contactRetrievalResult = await HubspotAdapter.RetrieveHubspotContactByEmailAddr(
+                this.contactCreationFixture.TestContactEmailAddress, 
+                fetchPreviousValues: true, 
+                log: logger.Object,
+                isTest: true);
             Assert.True(string.IsNullOrEmpty(contactRetrievalResult.ErrorMessage), contactRetrievalResult.ErrorMessage);
             Assert.Equal(200, (int)contactRetrievalResult.StatusCode);
-            Assert.Equal("001551", contactRetrievalResult.Payload.contactId);
+            //Assert.Equal("001551", contactRetrievalResult.Payload.contactId);
         }
 
         /// <summary>
@@ -84,16 +106,23 @@ namespace Test
         /// </summary>
         /// <returns></returns>
         [Fact]
-        public async Task Janine_Pittaway_Is_Retrieved_From_HubSpot_By_Id()
+        public async Task Test_User_Is_Retrieved_From_HubSpot_By_Id()
         {
             var logger = new Mock<ILogger>();
-            var contactRetrievalResult = await HubspotAdapter.RetrieveHubspotContactById("1551", fetchPreviousValues: true, log: logger.Object);
+            var contact = await contactCreationFixture.CreateTestContact();
+
+            var contactRetrievalResult = await HubspotAdapter.RetrieveHubspotContactById(
+                contact.contactId, 
+                fetchPreviousValues: true, 
+                log: logger.Object,
+                isTest: true
+                );
             Assert.True(string.IsNullOrEmpty(contactRetrievalResult.ErrorMessage), contactRetrievalResult.ErrorMessage);
             Assert.Equal(200, (int)contactRetrievalResult.StatusCode);
-            Assert.Equal("jpittaway@brightcommunications.com.au", contactRetrievalResult.Payload.email);
-            Assert.Equal("Janine Pittaway", contactRetrievalResult.Payload.fullName);
-            Assert.Equal("Janine.Pittaway", contactRetrievalResult.Payload.fullNamePeriodSeparated);
-            Assert.Equal("189 Sheoak Drive\nYallingup\nWA 6282", contactRetrievalResult.Payload.customerAddress);
+            Assert.Equal(this.contactCreationFixture.TestContactEmailAddress, contactRetrievalResult.Payload.email);
+            Assert.Equal("Autocreated TestUser", contactRetrievalResult.Payload.fullName);
+            Assert.Equal("Autocreated.TestUser", contactRetrievalResult.Payload.fullNamePeriodSeparated);
+            Assert.Equal("Unit Test 1, CrmUpdateHandler St\nTest City\nWA 6000", contactRetrievalResult.Payload.customerAddress);
         }
 
         [Fact]
@@ -110,7 +139,8 @@ namespace Test
                 "Bedrock",
                 "WA",
                 "9943",
-                "Unsure");
+                "Unsure",
+                true);
 
             var json = JsonConvert.SerializeObject(newContactProperties);
 

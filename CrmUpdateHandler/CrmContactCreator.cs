@@ -49,7 +49,10 @@ namespace CrmUpdateHandler
         /// <param name="req"></param>
         /// <param name="log"></param>
         /// <returns></returns>
-        /// <remarks>See <see cref="https://crmupdatehandler.azurewebsites.net/api/CreateNewCrmContact"/></remarks>
+        /// <remarks>See <see cref="https://crmupdatehandler.azurewebsites.net/api/CreateNewCrmContact"/>
+        /// This function creates a contact with "InstallationRecordExists = true", which means that the 
+        /// HubSpot contact-creation webhook doesn't create an Installation record (it's inhibited by
+        /// a condition placed on the relevant subscriber to the Event Grid's 'NewCrmContact' topic)</remarks>
         [FunctionName("CreateNewCrmContact")]
         public async Task<IActionResult> CreateNewContact(
             [HttpTrigger(AuthorizationLevel.Function, "get", "post", Route = null)] HttpRequest req,
@@ -123,6 +126,8 @@ namespace CrmUpdateHandler
             string bankName = userdata?.mortgage?.bankName;
             string bankBranch = userdata?.mortgage?.bankBranch;
 
+            const bool installationRecordExists = true; // inhibit the creation of an Installation record.
+
             log.LogInformation($"Creating {firstname} {lastname} as {email}");
 
             var crmAccessResult = await HubspotAdapter.CreateHubspotContactAsync(
@@ -137,6 +142,7 @@ namespace CrmUpdateHandler
                 customerState,
                 customerPostcode,
                 leadStatus,
+                installationRecordExists,
                 log,
                 isTest);
 
