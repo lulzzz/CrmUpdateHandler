@@ -10,33 +10,17 @@ namespace CrmUpdateHandler.Utility
     /// </summary>
     internal class CuratedHubspotEvent
     {
-        /// <summary>
-        /// Constructs an instance of a CuratedHubspotEvent for a new Contact
-        /// </summary>
-        /// <param name="objectId"></param>
-        /// <param name="eventId"></param>
-        public CuratedHubspotEvent(string objectId, string eventId)
-        {
-            this.Vid = objectId;
-            this.EventId = eventId;
-            this.IsNew = true;
-        }
-
 
         /// <summary>
         /// Constructs an instance of a CuratedHubspotEvent for the occasions where a Contact is updated.
         /// </summary>
         /// <param name="objectId"></param>
         /// <param name="eventId"></param>
-        /// <param name="propertyName"></param>
-        /// <param name="propertyValue"></param>
-        public CuratedHubspotEvent(string objectId, string eventId, string propertyName, string propertyValue)
+        public CuratedHubspotEvent(string objectId, string eventId, bool isNew)
         {
             this.Vid = objectId;
             this.EventId = eventId;
-            this.PropertyName = propertyName;
-            this.PropertyValue = propertyValue;
-            this.IsNew = false;
+            this.IsNew = isNew;
         }
 
         /// <summary>
@@ -48,16 +32,6 @@ namespace CrmUpdateHandler.Utility
         /// Gets or sets the event Id given to the event by Hubspot. We re-use it for the event Id we give to Event Grid
         /// </summary>
         public string EventId { get; set; }
-
-        /// <summary>
-        /// Gets the name of the property that was changed
-        /// </summary>
-        public string PropertyName { get; set; }
-
-        /// <summary>
-        /// Gets the value of the property that was changed.
-        /// </summary>
-        public string PropertyValue { get; set; }
 
         public bool IsNew { get; set; }
     }
