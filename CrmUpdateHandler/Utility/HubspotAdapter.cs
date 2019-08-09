@@ -201,6 +201,12 @@ namespace CrmUpdateHandler.Utility
                 var retval = new HubSpotContactResult(newContactResponse);
                 return retval;
             }
+            else if (response.StatusCode == HttpStatusCode.Conflict)
+            {
+                // The contact already exists. That's OK - we need to direct this contact to a human for review. 
+                log.LogWarning("Contact already exists");
+                return new HubSpotContactResult(response.StatusCode);
+            }
             else
             {
                 // Some other error - return the status code and body to the caller of the function

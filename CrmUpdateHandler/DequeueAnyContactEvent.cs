@@ -90,10 +90,13 @@ namespace CrmUpdateHandler
                     string attemptNumber = contactEvent?.attemptNumber;
                     string changePropertyName = contactEvent?.propertyName;
 
-                    // Temporary hack till our Flow can can this case
+                    // Temporary hack till our Flow can update folder names for us
                     if (changePropertyName == "firstname" || changePropertyName == "lastname")
                     {
-                        await errors.AddAsync(nameof(DequeueAnyContactEvent) + ": Name change for contact " + objectId + ". Check the Houses folder");
+                        if (subscriptionType != "contact.creation")
+                        {
+                            await errors.AddAsync(nameof(DequeueAnyContactEvent) + ": Name change for contact " + objectId + ". Check the Houses folder");
+                        }
                     }
 
                     log.LogInformation("Attempt number {0} for contact {1}: {2}", attemptNumber, objectId, subscriptionType);

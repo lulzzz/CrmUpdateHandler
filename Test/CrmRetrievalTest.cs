@@ -14,6 +14,7 @@ using Microsoft.Extensions.Primitives;
 using System.Net.Http;
 using Newtonsoft.Json;
 using Test.TestFixtures;
+using Microsoft.Azure.WebJobs;
 
 namespace Test
 {
@@ -40,6 +41,9 @@ namespace Test
         public async Task Verify_Function_Calls_HubSpot_Adapter()
         {
             var logger = new Mock<ILogger>();
+            var errorQ = new Mock<IAsyncCollector<string>>();
+            var updateReviewQ = new Mock<IAsyncCollector<string>>();
+
             var hubspotAdapter = new Mock<IHubSpotAdapter>();   // See note below; I'd rather mock the HttpClient and use a real HubSpotAdapter here. 
 
             var data = new CanonicalContact("012345")
@@ -69,8 +73,8 @@ namespace Test
 
             var contactCreator = new CrmContactCreator();
 
-            // Simulate the event being triggered
-            var result = await contactCreator.CreateNewContact(simulatedHttpRequest, logger.Object);
+            // Create the contact, with a mock error queue
+            var result = await contactCreator.CreateNewContact(simulatedHttpRequest, errorQ.Object, updateReviewQ.Object, logger.Object);
 
             // TODO: Much better to mock the HttpClient used by the HubSpotAdapter. Then we can verify the actual 
             // request being sent to the HttpClient.

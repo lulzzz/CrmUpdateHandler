@@ -48,7 +48,8 @@ namespace CrmUpdateHandler
         /// </summary>
         /// <param name="req"></param>
         /// <param name="log"></param>
-        /// <returns></returns>
+        /// <returns>Returns 200 OK if all goes well.
+        /// This function can also enqueue error messages and requests for update reviews</returns>
         /// <remarks>See <see cref="https://crmupdatehandler.azurewebsites.net/api/CreateNewCrmContact"/>
         /// This function creates a contact with "InstallationRecordExists = true", which means that the 
         /// HubSpot contact-creation webhook doesn't create an Installation record (it's inhibited by
@@ -56,6 +57,8 @@ namespace CrmUpdateHandler
         [FunctionName("CreateNewCrmContact")]
         public async Task<IActionResult> CreateNewContact(
             [HttpTrigger(AuthorizationLevel.Function, "get", "post", Route = null)] HttpRequest req,
+            [Queue("error-notification", Connection = "AzureWebJobsStorage")] IAsyncCollector<string> errorQueue,
+            [Queue("existing-contact-update-review", Connection = "AzureWebJobsStorage")] IAsyncCollector<string> updateReviewQueue,
             ILogger log)
         {
             log.LogInformation("CreateNewCrmContact triggered");
@@ -75,6 +78,7 @@ namespace CrmUpdateHandler
 
             if (string.IsNullOrEmpty(requestBody))
             {
+                await errorQueue.AddAsync(nameof(CrmContactCreator) + ": Request body is not empty");
                 return new BadRequestObjectResult("Empty Request Body");
             }
 
@@ -94,6 +98,7 @@ namespace CrmUpdateHandler
             if (userdata == null)
             {
                 log.LogWarning("Contact information was empty or not JSON");
+                await errorQueue.AddAsync(nameof(CrmContactCreator) + ": Contact information was empty or not JSON");
                 return new OkResult();
             }
 
@@ -128,7 +133,7 @@ namespace CrmUpdateHandler
 
             const bool installationRecordExists = true; // inhibit the creation of an Installation record.
 
-            log.LogInformation($"Creating {firstname} {lastname} as {email}");
+            log.LogInformation($"Creating {firstname} {lastname} as {email} {(isTest ? "in test database":string.Empty)}");
 
             var crmAccessResult = await HubspotAdapter.CreateHubspotContactAsync(
                 email, 
@@ -146,17 +151,25 @@ namespace CrmUpdateHandler
                 log,
                 isTest);
 
-            // If we failed to create a contact, then bail.
-            if (crmAccessResult.StatusCode != System.Net.HttpStatusCode.OK)
+            // Some failures aren't really failures
+            if (crmAccessResult.StatusCode == System.Net.HttpStatusCode.Conflict)
             {
+                // This is not unexpected. We can't blindly overwrite existing contact details when we don't know anything about the intentions
+                // of the caller. So we add the whole packet to a queue for reivew and approval by a human (using Approvals in Flow)
+                await updateReviewQueue.AddAsync(requestBody);
+                return (ActionResult)new OkResult();
+
+            }
+            else if (crmAccessResult.StatusCode != System.Net.HttpStatusCode.OK)
+            {
+                // This is a real failure. We cannot continue.
                 log.LogError($"Error {crmAccessResult.StatusCode} creating HubSpot contact: {crmAccessResult.ErrorMessage}");
+                await errorQueue.AddAsync(nameof(CrmContactCreator) + ": Error "+ crmAccessResult.StatusCode + " creating HubSpot contact: " + crmAccessResult.ErrorMessage);
                 return new BadRequestObjectResult(crmAccessResult.ErrorMessage);
             }
 
             log.LogInformation($"{firstname} {lastname} ({email}) created as {crmAccessResult.Payload.contactId}");
 
-            // Create a HubSpot Deal
-            // ... or maybe not ... (meeting 2019-07-22)
 
             // Now we must create an Installations record
             // The structure we must post to the 'CreateInstallation' endpoint is the same structure
@@ -171,6 +184,7 @@ namespace CrmUpdateHandler
 
             if (string.IsNullOrEmpty(createInstallationEndpoint))
             {
+                await errorQueue.AddAsync(nameof(CrmContactCreator) + ": CreateNewInstallationAzureFunctionEndpoint was not configured");
                 return new BadRequestObjectResult("CreateNewInstallationAzureFunctionEndpoint was not configured");
             }
 
@@ -199,11 +213,10 @@ namespace CrmUpdateHandler
                 if (response.StatusCode != System.Net.HttpStatusCode.OK)
                 {
                     log.LogError($"Error {response.StatusCode} invoking installation-creator");
+                    await errorQueue.AddAsync(nameof(CrmContactCreator) + ": Error " + response.StatusCode + " invoking installation-creator");
                     string errmsg = await response.Content.ReadAsStringAsync();
                     return new BadRequestObjectResult(errmsg);
-                }
-
-                
+                }                
             }
 
             return (ActionResult)new OkObjectResult(crmAccessResult.Payload);
