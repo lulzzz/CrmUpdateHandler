@@ -204,8 +204,14 @@ namespace CrmUpdateHandler.Utility
             else if (response.StatusCode == HttpStatusCode.Conflict)
             {
                 // The contact already exists. That's OK - we need to direct this contact to a human for review. 
-                log.LogWarning("Contact already exists");
-                return new HubSpotContactResult(response.StatusCode);
+                log.LogWarning("Contact already exists: {email}");
+
+                // Let's read the whole contact back, then.
+                var actualContact = await RetrieveHubspotContactByEmailAddr(email, false, log, isTest);
+
+                var retval = new HubSpotContactResult(actualContact.Payload);
+                retval.StatusCode = response.StatusCode;
+                return retval;
             }
             else
             {

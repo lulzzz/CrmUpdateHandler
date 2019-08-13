@@ -91,13 +91,14 @@ namespace CrmUpdateHandler
                     string changePropertyName = contactEvent?.propertyName;
 
                     // Temporary hack till our Flow can update folder names for us
-                    if (changePropertyName == "firstname" || changePropertyName == "lastname")
-                    {
-                        if (subscriptionType != "contact.creation")
-                        {
-                            await errors.AddAsync(nameof(DequeueAnyContactEvent) + ": Name change for contact " + objectId + ". Check the Houses folder");
-                        }
-                    }
+                    //  - didn't work well. On new contact, you get 4 update events + a create event, so the code below sent 4 emails
+                    //if (changePropertyName == "firstname" || changePropertyName == "lastname")
+                    //{
+                    //    if (subscriptionType != "contact.creation")
+                    //    {
+                    //        await errors.AddAsync(nameof(DequeueAnyContactEvent) + ": Name change for contact " + objectId + ". Check the Houses folder");
+                    //    }
+                    //}
 
                     log.LogInformation("Attempt number {0} for contact {1}: {2}", attemptNumber, objectId, subscriptionType);
 

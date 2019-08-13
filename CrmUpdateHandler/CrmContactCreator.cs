@@ -155,8 +155,14 @@ namespace CrmUpdateHandler
             if (crmAccessResult.StatusCode == System.Net.HttpStatusCode.Conflict)
             {
                 // This is not unexpected. We can't blindly overwrite existing contact details when we don't know anything about the intentions
-                // of the caller. So we add the whole packet to a queue for reivew and approval by a human (using Approvals in Flow)
-                await updateReviewQueue.AddAsync(requestBody);
+                // of the caller. So we add the whole packet to a queue for review and approval by a human (using Approvals in Flow)
+                var orig = crmAccessResult.Payload;
+                var updateReview = new UpdateReview(email, requestBody);
+                updateReview.AddChange("First", orig.firstName, firstname);
+                updateReview.AddChange("Last", orig.lastName, lastname);
+                updateReview.AddChange("Phone", orig.phone, phone);
+                // TODO: more...
+                await updateReviewQueue.AddAsync(JsonConvert.SerializeObject(updateReview));
                 return (ActionResult)new OkResult();
 
             }
@@ -178,6 +184,8 @@ namespace CrmUpdateHandler
             //      (2) a 'sendContract' flag that tells the Installation-creator to send a contract when the Installation record is created
             userdata.contact.crmid = crmAccessResult.Payload.contactId;
             userdata.sendContract = true;
+
+            // TODO Change this, so that we queue a message
 
             // To create a record in the Installations table we post to an Azure function https://plicoinstallationhandler.azurewebsites.net/api/CreateInstallation
             var createInstallationEndpoint = Environment.GetEnvironmentVariable("CreateNewInstallationAzureFunctionEndpoint", EnvironmentVariableTarget.Process);
