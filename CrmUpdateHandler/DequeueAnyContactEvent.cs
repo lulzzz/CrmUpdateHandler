@@ -21,7 +21,9 @@ namespace CrmUpdateHandler
         /// <param name="myQueueItem"></param>
         /// <param name="log"></param>
         /// <returns></returns>
-        /// <remarks>This will replace the synchronous HTTP handler
+        /// <remarks>To prevent parallel operation, the batchSize is set to 1. We had to reluctantly do this,
+        /// because with 16 (actually, batchSize + newBatchThreshold = 24) instances of this function were tripping
+        /// HubSpot's "too many calls" alarm, and calls were failing during bulk imports.
         /// TODO: Get the queue names from appSettings</remarks>
         [FunctionName("DequeueAnyContactEvent")]
         public static async Task Run(

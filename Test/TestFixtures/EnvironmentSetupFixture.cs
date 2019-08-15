@@ -13,6 +13,7 @@
     {
         public EnvironmentSetupFixture()
         {
+            // NB: launchSettings.json is not checked into source control. See a colleague for this file. 
             using (var file = File.OpenText("Properties\\launchSettings.json"))
             {
                 var reader = new JsonTextReader(file);
