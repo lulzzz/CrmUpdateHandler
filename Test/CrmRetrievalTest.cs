@@ -43,6 +43,7 @@ namespace Test
             var logger = new Mock<ILogger>();
             var errorQ = new Mock<IAsyncCollector<string>>();
             var updateReviewQ = new Mock<IAsyncCollector<string>>();
+            var installationQ = new Mock<IAsyncCollector<string>>();
 
             var hubspotAdapter = new Mock<IHubSpotAdapter>();   // See note below; I'd rather mock the HttpClient and use a real HubSpotAdapter here. 
 
@@ -74,10 +75,9 @@ namespace Test
             var contactCreator = new CrmContactCreator();
 
             // Create the contact, with a mock error queue
-            var result = await contactCreator.CreateNewContact(simulatedHttpRequest, errorQ.Object, updateReviewQ.Object, logger.Object);
+            var result = await contactCreator.CreateNewContact(simulatedHttpRequest, errorQ.Object, updateReviewQ.Object, installationQ.Object, logger.Object);
 
-            // TODO: Much better to mock the HttpClient used by the HubSpotAdapter. Then we can verify the actual 
-            // request being sent to the HttpClient.
+            // TODO: Review these tests in the light of the new dependency-injection capabilities. 
 
             Assert.IsType<OkObjectResult>(result);
         }

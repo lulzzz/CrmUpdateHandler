@@ -120,12 +120,12 @@ namespace CrmUpdateHandler.Utility
         }
 
         /// <summary>
-        /// Create a contact in Hubspot
+        /// Create a contact in Hubspot. 
         /// </summary>
         /// <param name="email"></param>
         /// <param name="firstname"></param>
         /// <param name="lastname"></param>
-        /// <returns></returns>
+        /// <returns>Returns the created contact. If a contact with this email already exists, returns the conflicting contact from HubSpot</returns>
         /// <see cref="https://developers.hubspot.com/docs/methods/contacts/create_contact"/>
         internal static async Task<HubSpotContactResult> CreateHubspotContactAsync(
             string email, 
