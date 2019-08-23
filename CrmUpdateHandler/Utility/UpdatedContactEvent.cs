@@ -8,7 +8,7 @@ namespace CrmUpdateHandler.Utility
     /// <summary>
     /// This is the wrapper object around an updated contact that is sent to event grid
     /// </summary>
-    public class UpdatedContactEvent : EventGridEvent
+    public class UpdatedContactEvent : EventGridEventBase
     {
         public UpdatedContactEvent(string id, CanonicalContact hubspotContact)
         {

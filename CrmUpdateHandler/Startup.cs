@@ -1,5 +1,6 @@
 ﻿using CrmUpdateHandler.Utility;
 using Microsoft.Azure.Functions.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
@@ -24,8 +25,8 @@ namespace CrmUpdateHandler
             //    return new CosmosClient(Environment.GetEnvironmentVariable("COSMOSDB_CONNECTIONSTRING"));
             //});
 
-            // This worked, but it wasn't enough. Waiting till new fixes or better documentation comes out before leaping into Dependency Injection
-            //builder.Services.AddSingleton<IHubSpotAdapter, HubspotAdapter>();
+
+            builder.Services.AddSingleton<IHubSpotAdapter, HubspotAdapter>();
         }
     }
 }

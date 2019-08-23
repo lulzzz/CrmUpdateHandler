@@ -10,8 +10,20 @@ using Newtonsoft.Json;
 
 namespace CrmUpdateHandler
 {
-    public static class DequeueAnyContactEvent
+    public class DequeueAnyContactEvent
     {
+        private IHubSpotAdapter _hubSpotAdapter;
+
+
+        /// <summary>
+        /// Constructor is an entry point for the dependency-injection defined in Startup.cs
+        /// </summary>
+        /// <param name="hubSpotAdapter"></param>
+        public DequeueAnyContactEvent(IHubSpotAdapter hubSpotAdapter)
+        {
+            this._hubSpotAdapter = hubSpotAdapter;
+        }
+
         /// <summary>
         /// A Queue-triggered function that handles the raw change packets from HubSpot
         /// Error messages are sent to the 'error-notification' queue. This is created 
@@ -25,14 +37,18 @@ namespace CrmUpdateHandler
         /// because with 16 (actually, batchSize + newBatchThreshold = 24) instances of this function were tripping
         /// HubSpot's "too many calls" alarm, and calls were failing during bulk imports.
         /// TODO: Get the queue names from appSettings</remarks>
+        [StorageAccount("AzureWebJobsStorage")]
         [FunctionName("DequeueAnyContactEvent")]
-        public static async Task Run(
-            [QueueTrigger("raw-hubspot-change-notifications", Connection = "AzureWebJobsStorage")]string requestBody,
-            [Queue("error-notification", Connection = "AzureWebJobsStorage")] IAsyncCollector<string> errors,
+        public async Task Run(
+            [QueueTrigger("raw-hubspot-change-notifications")]string requestBody,
+            [Queue("error-notification")] IAsyncCollector<string> errors,
             ILogger log)
         {
             log.LogInformation($"DequeueAnyContactEvent trigger function processed");
             var where = string.Empty;
+
+            // Instantiate our convenient wrapper for the error-log queue
+            var errQ = new ErrorQueueLogger(errors, "CrmUpdateHandler", nameof(DequeueAnyContactEvent));
 
             try
             {
@@ -44,7 +60,7 @@ namespace CrmUpdateHandler
                 if (contactEvents == null)
                 {
                     log.LogWarning("Contact information was empty or not JSON");
-                    await errors.AddAsync(nameof(DequeueAnyContactEvent) + ": Contact information was empty or not JSON");
+                    errQ.LogError("Contact information was empty or not JSON");
                     return;
                 }
 
@@ -53,7 +69,7 @@ namespace CrmUpdateHandler
                 if (!gotExpectedType)
                 {
                     log.LogWarning("Contact information not an array of JSON objects");
-                    await errors.AddAsync(nameof(DequeueAnyContactEvent) + ": Contact information not an array of JSON objects");
+                    errQ.LogError("Contact information not an array of JSON objects");
                     return;
                 }
 
@@ -115,7 +131,7 @@ namespace CrmUpdateHandler
                             break;
                         default:
                             log.LogWarning("Unexpected subscriptionType from HubSpot: " + subscriptionType);
-                            await errors.AddAsync(nameof(DequeueAnyContactEvent) + ": Unexpected subscriptionType from HubSpot: " + subscriptionType);
+                            errQ.LogError("Unexpected subscriptionType from HubSpot: " + subscriptionType);
                             break;
                     }
                 }
@@ -132,7 +148,7 @@ namespace CrmUpdateHandler
                     string objectId = contactEvent.Vid;
 
                     where = "retrieving contact " + objectId;
-                    var contactResult = await HubspotAdapter.RetrieveHubspotContactById(objectId, fetchPreviousValues: true, log: log);
+                    var contactResult = await this._hubSpotAdapter.RetrieveHubspotContactById(objectId, fetchPreviousValues: true, log: log, isTest: false);
 
                     NewContactEvent newContactEvent = null;
                     UpdatedContactEvent updatedContactEvent = null;
@@ -168,7 +184,7 @@ namespace CrmUpdateHandler
                         log.LogInformation("Original Request Body:");
                         log.LogInformation(requestBody);
 
-                        await errors.AddAsync(nameof(DequeueAnyContactEvent) + ": Failed to retrieve contact " + objectId + " from HubSpot. " + contactResult.ErrorMessage);
+                        errQ.LogError("Failed to retrieve contact " + objectId + " from HubSpot. " + contactResult.ErrorMessage);
                     }
                 }
 
@@ -186,9 +202,8 @@ namespace CrmUpdateHandler
             }
             catch (Exception ex)
             {
-                log.LogError("Request failed: {0}", ex.Message);
-                await errors.AddAsync(nameof(DequeueAnyContactEvent) + ": Request failed " + where + ": " + ex.Message);
-                //return new StatusCodeResult(500);
+                log.LogError($"Request failed {where}: {ex.Message}");
+                errQ.LogError("Exception " + where + ": " + ex.Message);
             }
 
         }

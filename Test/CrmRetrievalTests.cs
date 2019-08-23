@@ -15,35 +15,50 @@ using System.Net.Http;
 using Newtonsoft.Json;
 using Test.TestFixtures;
 using Microsoft.Azure.WebJobs;
+using Test.Utility;
 
 namespace Test
 {
-    public class CrmRetrievalTest : AzureFunctionTestBase, IClassFixture<TestContactCreationFixture>, IClassFixture<EnvironmentSetupFixture>
+    public class CrmRetrievalTests : AzureFunctionTestBase, IClassFixture<TestContactCreationFixture>, IClassFixture<EnvironmentSetupFixture>
     {
         private TestContactCreationFixture contactCreationFixture;
         private EnvironmentSetupFixture environmentSetupFixture;
 
         /// <summary>
-        /// Constructor is called for every test. It is passed the fixture, which is instantiated only once, just
+        /// Acts as the error queue
+        /// </summary>
+        private TestableAsyncCollector<string> _errorQueue;
+        /// <summary>
+        /// Acts as the error queue
+        /// </summary>
+        private TestableAsyncCollector<string> _installationQueue;
+
+        /// <summary>
+        /// Stores log messages emitted by the code under test
+        /// </summary>
+        private ListLogger _logger;
+
+        /// <summary>
+        /// Constructor is called for every test. It is passed the fixtures, which are instantiated only once, just
         /// before the first test is run, to set the environment variables used by the test
         /// </summary>
         /// <param name="contactCreationFixture"></param>
-        public CrmRetrievalTest(TestContactCreationFixture contactCreationFixture, EnvironmentSetupFixture environmentSetupFixture)
+        public CrmRetrievalTests(TestContactCreationFixture contactCreationFixture, EnvironmentSetupFixture environmentSetupFixture)
         {
             this.contactCreationFixture = contactCreationFixture;
             this.environmentSetupFixture = environmentSetupFixture;
+
+            this._errorQueue = new TestableAsyncCollector<string>();
+            this._installationQueue = new TestableAsyncCollector<string>();
+            this._logger = new ListLogger();
         }
 
 
-        // Wait on Microsoft to fix their bugs and allow Azure Functions as instantiable classes. Then we
-        // can maybe do dependency injection to enable testing. 
-        // THIS TEST WILL ACTUALLY CREATE A CONTACT IN THE DB. THATS WHY WE NEED TO UNDERSTAND DI BETTER
-        public async Task Verify_Function_Calls_HubSpot_Adapter()
+
+        [Fact]
+        public async Task verify_that_contact_creation_inserts_installation_on_queue()
         {
-            var logger = new Mock<ILogger>();
-            var errorQ = new Mock<IAsyncCollector<string>>();
             var updateReviewQ = new Mock<IAsyncCollector<string>>();
-            var installationQ = new Mock<IAsyncCollector<string>>();
 
             var hubspotAdapter = new Mock<IHubSpotAdapter>();   // See note below; I'd rather mock the HttpClient and use a real HubSpotAdapter here. 
 
@@ -62,7 +77,17 @@ namespace Test
                     It.IsAny<string>(),
                     It.IsAny<string>(),
                     It.IsAny<string>(),
-                    It.IsAny<string>()))
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<ILogger>(),
+                    It.IsAny<bool>()))
                 .ReturnsAsync(desiredResult);
 
             // Load in the JSON body of a typical create-crm request
@@ -72,14 +97,15 @@ namespace Test
             //query.Add("messageId", "ABC123");
             var simulatedHttpRequest = this.HttpRequestSetup(query, body);
 
-            var contactCreator = new CrmContactCreator();
+            var contactCreator = new CrmContactCreator(hubspotAdapter.Object);
 
             // Create the contact, with a mock error queue
-            var result = await contactCreator.CreateNewContact(simulatedHttpRequest, errorQ.Object, updateReviewQ.Object, installationQ.Object, logger.Object);
+            var result = await contactCreator.CreateNewContact(simulatedHttpRequest, _errorQueue, updateReviewQ.Object, _installationQueue, _logger);
 
             // TODO: Review these tests in the light of the new dependency-injection capabilities. 
 
             Assert.IsType<OkObjectResult>(result);
+            Assert.Single(_installationQueue.Items);
         }
 
 
@@ -89,12 +115,14 @@ namespace Test
         /// </summary>
         /// <returns></returns>
         [Fact]
-        public async Task Test_Contact_Is_Retrieved_From_HubSpot_By_Email()
+        public async Task verify_the_test_contact_is_retrieved_from_hubspot_by_email_addr()
         {
             var logger = new Mock<ILogger>();
             var contact = await contactCreationFixture.CreateTestContact();
 
-            var contactRetrievalResult = await HubspotAdapter.RetrieveHubspotContactByEmailAddr(
+            var adapter = new HubspotAdapter();
+
+            var contactRetrievalResult = await adapter.RetrieveHubspotContactByEmailAddr(
                 this.contactCreationFixture.TestContactEmailAddress, 
                 fetchPreviousValues: true, 
                 log: logger.Object,
@@ -110,12 +138,14 @@ namespace Test
         /// </summary>
         /// <returns></returns>
         [Fact]
-        public async Task Test_User_Is_Retrieved_From_HubSpot_By_Id()
+        public async Task verify_the_test_contact_is_retrieved_from_hubspot_by_id()
         {
             var logger = new Mock<ILogger>();
             var contact = await contactCreationFixture.CreateTestContact();
 
-            var contactRetrievalResult = await HubspotAdapter.RetrieveHubspotContactById(
+            var adapter = new HubspotAdapter();
+
+            var contactRetrievalResult = await adapter.RetrieveHubspotContactById(
                 contact.contactId, 
                 fetchPreviousValues: true, 
                 log: logger.Object,
@@ -129,7 +159,9 @@ namespace Test
             Assert.Equal("Unit Test 1, CrmUpdateHandler St\nTest City\nWA 6000", contactRetrievalResult.Payload.customerAddress);
         }
 
-        [Fact]
+
+
+        [Fact(Skip ="Not a real test")]
         public async Task newContact_Tester()
         {
             var newContactProperties = HubspotAdapter.AssembleContactProperties(

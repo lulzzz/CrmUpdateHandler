@@ -30,12 +30,16 @@ namespace CrmUpdateHandler
     ///             No Installation Record is created
     /// </remarks>
     public class CrmContactCreator
-    {        
+    {
+        private IHubSpotAdapter _hubSpotAdapter;
 
-        static CrmContactCreator()
+        /// <summary>
+        /// Constructor is an entry point for the dependency-injection defined in Startup.cs
+        /// </summary>
+        /// <param name="hubSpotAdapter"></param>
+        public CrmContactCreator(IHubSpotAdapter hubSpotAdapter)
         {
-            // TODO: Lose this line below, remove the key from local.settings.json and also from application settings online. 
-            var newInstallationAzureFunctionKey = Environment.GetEnvironmentVariable("CreateNewInstallationAzureFunctionKey", EnvironmentVariableTarget.Process);
+            this._hubSpotAdapter = hubSpotAdapter;
         }
 
         /// <summary>
@@ -53,7 +57,7 @@ namespace CrmUpdateHandler
         [FunctionName("CreateNewCrmContact")]
         public async Task<IActionResult> CreateNewContact(
             [HttpTrigger(AuthorizationLevel.Function, "get", "post", Route = null)] HttpRequest req,
-            [Queue("error-notification")] IAsyncCollector<string> errorQueue,
+            [Queue("error-notification")] IAsyncCollector<string> errors,
             [Queue("existing-contact-update-review")] IAsyncCollector<string> updateReviewQueue,
             [Queue("installations-to-be-created")] IAsyncCollector<string> installationsAwaitingCreationQueue,
             ILogger log)
@@ -70,12 +74,14 @@ namespace CrmUpdateHandler
                 isTest = true;
             }
 
+            // Instantiate our convenient wrapper for the error-log queue
+            var errQ = new ErrorQueueLogger(errors, "CrmUpdateHandler", nameof(CrmContactCreator));
 
             string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
 
             if (string.IsNullOrEmpty(requestBody))
             {
-                await errorQueue.AddAsync(nameof(CrmContactCreator) + ": Request body is not empty");
+                errQ.LogError("Request body is not empty");
                 return new BadRequestObjectResult("Empty Request Body");
             }
 
@@ -95,7 +101,7 @@ namespace CrmUpdateHandler
             if (userdata == null)
             {
                 log.LogWarning("Contact information was empty or not JSON");
-                await errorQueue.AddAsync(nameof(CrmContactCreator) + ": Contact information was empty or not JSON");
+                errQ.LogError("Contact information was empty or not JSON");
                 return new OkResult();
             }
 
@@ -133,7 +139,7 @@ namespace CrmUpdateHandler
 
             log.LogInformation($"Creating {firstname} {lastname} as {email} {(isTest ? "in test database" : string.Empty)}");
 
-            var crmAccessResult = await HubspotAdapter.CreateHubspotContactAsync(
+            var crmAccessResult = await this._hubSpotAdapter.CreateHubspotContactAsync(
                 email,
                 firstname,
                 lastname,
@@ -168,7 +174,7 @@ namespace CrmUpdateHandler
             {
                 // This is a real failure. We cannot continue.
                 log.LogError($"Error {crmAccessResult.StatusCode} creating HubSpot contact: {crmAccessResult.ErrorMessage}");
-                await errorQueue.AddAsync(nameof(CrmContactCreator) + ": Error " + crmAccessResult.StatusCode + " creating HubSpot contact: " + crmAccessResult.ErrorMessage);
+                errQ.LogError("Error " + crmAccessResult.StatusCode + " creating HubSpot contact: " + crmAccessResult.ErrorMessage);
                 return new BadRequestObjectResult(crmAccessResult.ErrorMessage);
             }
 

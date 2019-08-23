@@ -1,6 +1,70 @@
-﻿{
-	"email": "aa.Postman@ksc.net.au",
-	"firstname": "aa",
-	"lastname": "Postman",
-	"phone": "867 5309"
+﻿{  
+   "leadStatus":"Ready To Engage",
+   "contact":{  
+      "firstname":"Unit",
+      "lastname":"Test",
+      "email":"CrmUpdateHandler_Test@ksc.net.au",
+      "phone":"0444555666"
+   },
+   "installAddress":{  
+      "street":"19 Salmon Plaice",
+      "unit":"",
+      "suburb":"Quedjinup",
+      "state":"WA",
+      "postcode":"6281"
+   },
+   "property":{  
+      "propertyOwnership":"owner",
+      "propertyType":"residential",
+      "abn":""
+   },
+   "mortgage":{  
+      "mortgageStatus":"yes",
+      "bankName":"NAB",
+      "bankOther":""
+   },
+   "landlordContact":{  
+      "contactType":"",
+      "name":"",
+      "email":"",
+      "phone":"",
+      "address":{  
+         "street":"",
+         "unit":"",
+         "suburb":"",
+         "state":"",
+         "postcode":""
+      }
+   },
+   "signatories":{  
+      "signer1":{  
+         "name":"Unit Test",
+         "email":"CrmUpdateHandler_Test@ksc.net.au",
+         "address":{  
+            "street":"19 Salmon Plaice",
+            "unit":"",
+            "suburb":"Quedjinup",
+            "state":"WA",
+            "postcode":"6281"
+         }
+      },
+      "signer2":{  
+         "name":" ",
+         "email":"",
+         "address":{  
+            "street":"",
+            "unit":"",
+            "suburb":"",
+            "state":"",
+            "postcode":""
+         }
+      }
+   },
+   "battery":{  
+      "configuration":"standard",
+      "confirmExtraCost":""
+   },
+   "acceptance":{  
+      "declaration":""
+   }
 }

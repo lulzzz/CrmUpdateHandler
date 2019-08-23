@@ -29,7 +29,37 @@ namespace Test.TestFixtures
 
         public string TestContactEmailAddress => "testcontactcreationfixture@example.com";
 
-        public string TestContactId => this.contact.contactId;
+        /// <summary>
+        /// Gets the vid of the temporary test contact
+        /// </summary>
+        public string TestContactId
+        {
+            get
+            {
+                if (this.contact == null)
+                {
+                    throw new CrmUpdateHandlerException("You must call TestContactCreationFixture.CreateTestContact() early in your test");
+                }
+
+                return this.contact.contactId;
+            }
+        }
+
+        /// <summary>
+        /// Gets the email address of the temporary test contact
+        /// </summary>
+        public string TestContactEmail
+        {
+            get
+            {
+                if (this.contact == null)
+                {
+                    throw new CrmUpdateHandlerException("You must call TestContactCreationFixture.CreateTestContact() early in your test");
+                }
+
+                return this.contact.email;
+            }
+        }
 
         /// <summary>
         /// Creates the test contact in the HubSpot sandbox if necessary
@@ -47,8 +77,9 @@ namespace Test.TestFixtures
                 if (this.contact == null)
                 {
                     const bool installationRecordexists = true;
+                    var adapter = new HubspotAdapter();
 
-                    var contactResult = await HubspotAdapter.CreateHubspotContactAsync(
+                    var contactResult = await adapter.CreateHubspotContactAsync(
                         this.TestContactEmailAddress,
                         "Autocreated",
                         "TestUser",
@@ -67,7 +98,7 @@ namespace Test.TestFixtures
                     if (contactResult.StatusCode == System.Net.HttpStatusCode.Conflict)
                     {
                         // Contact already exists - so just use that one
-                        contactResult = await HubspotAdapter.RetrieveHubspotContactByEmailAddr(this.TestContactEmailAddress, false, log, true);
+                        contactResult = await adapter.RetrieveHubspotContactByEmailAddr(this.TestContactEmailAddress, false, log, isTest: true);
                     }
 
                     if (contactResult.StatusCode != System.Net.HttpStatusCode.OK)

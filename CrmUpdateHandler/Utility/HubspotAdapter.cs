@@ -15,7 +15,7 @@ namespace CrmUpdateHandler.Utility
     /// <summary>
     /// Centralises functionalities and resources for reading and writing against the Hubspot CRM.
     /// </summary>
-    internal static class HubspotAdapter
+    internal class HubspotAdapter : IHubSpotAdapter
     {
         // Singleton instance - this makes the Azure functions more scalable.
         private static readonly HttpClient httpClient;
@@ -23,49 +23,6 @@ namespace CrmUpdateHandler.Utility
         private static readonly string hapikey;
         private static readonly string sandbox_hapikey;
 
-        /// <summary>
-        /// A structure that serialises into a request body suitable to create a Contact via the HubSpot API
-        /// </summary>
-        public class ContactProperties
-        {
-            /// <summary>
-            /// Creates a new instance of the ContactProperties object
-            /// </summary>
-            public ContactProperties()
-            {
-                this.properties = new List<PropertyValuePair>();
-            }
-
-            /// <summary>
-            /// Gets a reference to a collection of contact properties that serialises with the name "properties"
-            /// </summary>
-            public List<PropertyValuePair> properties { get; private set; }
-
-            /// <summary>
-            /// Adds a new Contact property to the "properties" collection
-            /// </summary>
-            /// <param name="property"></param>
-            /// <param name="value"></param>
-            public void Add(string property, string value)
-            {
-                this.properties.Add(new PropertyValuePair(property, value));
-            }
-            /// <summary>
-            /// The class that encapsulates the 'property' and the 'value' is internal
-            /// </summary>
-            [DebuggerDisplay("{property} = {value}")]
-            public class PropertyValuePair
-            {
-                public PropertyValuePair(string property, string value)
-                {
-                    this.property = property;
-                    this.value = value;
-                }
-                public string property { get; set; }
-                public string value { get; set; }
-            }
-
-        }
 
         /// <summary>
         /// Static constructor performs a one-time initialisation of the httpClient and hubspot API key
@@ -86,7 +43,7 @@ namespace CrmUpdateHandler.Utility
         /// <param name="contactId">The Hubspot Contact Id</param>
         /// <param name="fetchPreviousValues">A value to indicate whether to populate the oldXXX properties from the Hubspot 'versions' array</param>
         /// <returns></returns>
-        internal static async Task<HubSpotContactResult> RetrieveHubspotContactById(string contactId, bool fetchPreviousValues, ILogger log, bool isTest = false)
+        public async Task<HubSpotContactResult> RetrieveHubspotContactById(string contactId, bool fetchPreviousValues, ILogger log, bool isTest = false)
         {
             // Check that the appropriate Hubspot API key was correctly retrieved in the static constructor
             var activeHapiKey = isTest ? sandbox_hapikey : hapikey;
@@ -107,7 +64,7 @@ namespace CrmUpdateHandler.Utility
         /// <returns>A Type containing the Contact</returns>
         /// <remarks>Sometimes we will want the old properties and the new (which Hubspot gives us). Other times, we will
         /// just want the current properties, as we will override them with an externally-sourced value</remarks>
-        internal static async Task<HubSpotContactResult> RetrieveHubspotContactByEmailAddr(string email, bool fetchPreviousValues, ILogger log, bool isTest=false)
+        public async Task<HubSpotContactResult> RetrieveHubspotContactByEmailAddr(string email, bool fetchPreviousValues, ILogger log, bool isTest=false)
         {
             // Check that the appropriate Hubspot API key was correctly retrieved in the static constructor
             var activeHapiKey = isTest ? sandbox_hapikey : hapikey;
@@ -127,7 +84,7 @@ namespace CrmUpdateHandler.Utility
         /// <param name="lastname"></param>
         /// <returns>Returns the created contact. If a contact with this email already exists, returns the conflicting contact from HubSpot</returns>
         /// <see cref="https://developers.hubspot.com/docs/methods/contacts/create_contact"/>
-        internal static async Task<HubSpotContactResult> CreateHubspotContactAsync(
+        public async Task<HubSpotContactResult> CreateHubspotContactAsync(
             string email, 
             string firstname, 
             string lastname, 
@@ -158,7 +115,7 @@ namespace CrmUpdateHandler.Utility
             }
 
             // To send a Contact to Hubspot via the API we need an object that will serialise into a bunch of {property, value} pairs
-            ContactProperties newContactProperties = AssembleContactProperties(
+            HubSpotContactProperties newContactProperties = AssembleContactProperties(
                 email, 
                 firstname, 
                 lastname, 
@@ -226,7 +183,7 @@ namespace CrmUpdateHandler.Utility
         /// Create a Deal in Hubspot
         /// </summary>
         /// <returns></returns>
-        internal static async Task<HubSpotDealResult> CreateHubSpotDealAsync(
+        internal async Task<HubSpotDealResult> CreateHubSpotDealAsync(
             int vid,
             string dealname,
             string salesPipeline,
@@ -289,6 +246,98 @@ namespace CrmUpdateHandler.Utility
             }
         }
 
+        /// <summary>
+        /// Updates a HubSpot contact fields with the given contract status
+        /// </summary>
+        /// <param name="email"></param>
+        /// <param name="status"></param>
+        /// <param name="log"></param>
+        /// <param name="isTest"></param>
+        /// <returns></returns>
+        /// <remarks>Make 'status' an enum that reflects the Sharepoint 'ContractStatus' field</remarks>
+        public async Task<HubSpotContactResult> UpdateContractStatusAsync(
+            string email, 
+            string status,
+            ILogger log, 
+            bool isTest)
+        {
+            // Check that the appropriate Hubspot API key was correctly retrieved in the static constructor
+            var activeHapiKey = isTest ? sandbox_hapikey : hapikey;
+
+            if (string.IsNullOrEmpty(activeHapiKey))
+            {
+                return new HubSpotContactResult(HttpStatusCode.InternalServerError, "Hubspot API key not found");
+            }
+
+            // To update a Contact Property we need a HubSpotContactProperties object that specifies all the properties
+            var props = new HubSpotContactProperties();
+
+            var internalLeadStatusValue = string.Empty;
+
+            // For now, we update a few fields:
+            // 'Lead Status' - used by Brian for reporting. Not sustainable, will fall over when the a contact has two installations
+            //                 I would like to retire these two states from Lead Status and re-do the reports.
+            //
+            // 'TotalSentContracts'
+            // 'TotalSignedContracts' - these will support aggregates. But aggregates are expense to obtain from Sharepoint. When we
+            //                          move the Installations table to SQL Server, we will revisit this logic and compute aggregates.
+            //
+            // So there is a temporary hack here right now. We're not computing proper totals.
+
+            switch (status.ToLower())
+            {
+                case "sent":
+                    props.Add("totalsentcontracts", "1");
+                    internalLeadStatusValue = "CONTRACT_SENT";
+                    break;
+                case "signed":
+                    props.Add("totalsignedcontracts", "1");
+                    internalLeadStatusValue = "CONTRACT_SIGNED";
+                    break;
+                case "rejected":
+                    props.Add("totalsignedcontracts", "0");
+                    internalLeadStatusValue = "NOT_INTERESTED";
+                    break;
+                default:
+                    throw new CrmUpdateHandlerException("Unrecognised contract status: '" + status + "'");
+            }
+            props.Add("hs_lead_status", internalLeadStatusValue);
+
+            // We need to resolve the email into a contact id (a 'vid', in HubSpot language)
+            var hubSpotContactResult = await this.RetrieveHubspotContactByEmailAddr(email, false, log, isTest);
+
+            if (hubSpotContactResult.StatusCode != HttpStatusCode.OK)
+            {
+                log.LogInformation("Error retrieving HubSpot details for '" + email + "'");
+                return hubSpotContactResult;
+            }
+
+            // Great, we managed to retrieve the contact via the email address.
+            var vid = hubSpotContactResult.Payload.contactId;
+
+            // Now just POST it - see https://developers.hubspot.com/docs/methods/contacts/update_contact
+            // Returns a 204 No Content on success
+            var url = string.Format($"https://api.hubapi.com/contacts/v1/contact/vid/{vid}/profile?hapikey={activeHapiKey}");
+
+            log.LogInformation($"Updating {vid} contract status to {status}");
+            HttpResponseMessage response = await httpClient.PostAsJsonAsync(url, props);
+
+            // Check Status Code. 
+            if (response.StatusCode == HttpStatusCode.NoContent)
+            {
+                log.LogInformation("Hubspot status update OK");
+                var retval = new HubSpotContactResult(HttpStatusCode.OK);
+                return retval;
+            }
+            else
+            {
+                // Some kind of error - return the status code and body to the caller of the function
+                string resultText = await response.Content.ReadAsStringAsync();
+                log.LogError("Hubspot update failed: {0}: {1}", response.StatusCode, resultText);
+                return new HubSpotContactResult(response.StatusCode, resultText);
+            }
+
+        }
 
         /// <summary>
         /// Convert a bunch of properties to the name-value structure required by the HubSpot 'create' API
@@ -304,7 +353,7 @@ namespace CrmUpdateHandler.Utility
         /// <param name="postcode"></param>
         /// <param name="leadStatus"></param>
         /// <returns></returns>
-        internal static ContactProperties AssembleContactProperties(
+        internal static HubSpotContactProperties AssembleContactProperties(
             string email, 
             string firstname, 
             string lastname, 
@@ -318,7 +367,7 @@ namespace CrmUpdateHandler.Utility
             string leadStatus,
             bool installationRecordExists)
         {
-            var newContactProperties = new ContactProperties();
+            var newContactProperties = new HubSpotContactProperties();
 
             // Need to sanitise the properties received here. 
             if (new EmailAddressAttribute().IsValid(email))
@@ -447,7 +496,7 @@ namespace CrmUpdateHandler.Utility
         /// <param name="url">A valid GET url for retrieving a Hubspot contact. It's expected to have the hapikey on the url</param>
         /// <param name="fetchPreviousValues"></param>
         /// <returns></returns>
-        private static async Task<HubSpotContactResult> RetrieveHubspotContactWithUrl(string url, bool fetchPreviousValues, ILogger log)
+        private async Task<HubSpotContactResult> RetrieveHubspotContactWithUrl(string url, bool fetchPreviousValues, ILogger log)
         {
             // Go get the contact from HubSpot using the supplied url
             HttpResponseMessage response = await httpClient.GetAsync(url);

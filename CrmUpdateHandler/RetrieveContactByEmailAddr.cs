@@ -39,8 +39,9 @@ namespace CrmUpdateHandler
     /// https://github.com/projectkudu/kudu/wiki/Deploying-from-a-zip-file-or-url
     /// https://social.msdn.microsoft.com/Forums/en-US/520a8488-d1a9-4843-be01-effdba936bd3/azure-function-publish-from-vs2017-fails-with-requesttimeout-and-0x80070002-on?forum=AzureFunctions
     /// </remarks>
-    internal static class RetrieveContactByEmailAddr
+    internal class RetrieveContactByEmailAddr
     {
+        private IHubSpotAdapter _hubSpotAdapter;
 
         /// <summary>
         /// Returns a Contact definition from the CRM, given an email address.
@@ -49,8 +50,9 @@ namespace CrmUpdateHandler
         /// <param name="log"></param>
         /// <returns></returns>
         [FunctionName("RetrieveContactByEmailAddr")]
-        public static async Task<IActionResult> Run(
+        public async Task<IActionResult> Run(
             [HttpTrigger(AuthorizationLevel.Anonymous, "get", "post", Route = null)] HttpRequest req,
+            [Queue("error-notification")] IAsyncCollector<string> errors,
             ILogger log)
         {
             log.LogInformation("RetrieveContactByEmailAddr HTTP trigger");
@@ -58,11 +60,14 @@ namespace CrmUpdateHandler
             // the email address is expected to come in as a queryparam.
             string email = req.Query["email"];
 
+            // Instantiate our convenient wrapper for the error-log queue
+            var errQ = new ErrorQueueLogger(errors, "CrmUpdateHandler", nameof(RetrieveContactByEmailAddr));
+
 
             // Retrieve the Hubspot contact corresponding to this email address
             try
             {
-                var contactResult = await HubspotAdapter.RetrieveHubspotContactByEmailAddr(email, fetchPreviousValues: false, log: log);
+                var contactResult = await this._hubSpotAdapter.RetrieveHubspotContactByEmailAddr(email, fetchPreviousValues: false, log: log, isTest: false);
 
                 if (contactResult.StatusCode == HttpStatusCode.OK)
                 {
@@ -74,14 +79,16 @@ namespace CrmUpdateHandler
                 }
                 else
                 {
-                    log.LogError("Error: HTTP {0} {1} ", (int)contactResult.StatusCode, contactResult.ErrorMessage);
-                    log.LogError("email: {0} ", email);
+                    log.LogError($"Error: HTTP {contactResult.StatusCode} {contactResult.ErrorMessage} for '{email}'");
+                    errQ.LogError($"Error: HTTP {contactResult.StatusCode} {contactResult.ErrorMessage} for '{email}'");
                     return new StatusCodeResult((int)contactResult.StatusCode);
                 }
 
             }
             catch (Exception ex)
             {
+                log.LogError($"Exception: {ex.Message} retrieving contact '{email}'");
+                errQ.LogError($"Exception: {ex.Message} retrieving contact '{email}'");
                 return new StatusCodeResult(500);
             }
         }

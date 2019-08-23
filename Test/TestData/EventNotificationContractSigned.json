@@ -1,0 +1,18 @@
+﻿  {
+    "data": {
+      "contractstate": "Signed",
+      "eventtype": "ContractSigned",
+      "installationId": "124",
+      "customeremail": "testy.webhookssen@ksc.net.au",
+      "senddate": "2019-08-19T06:25:14.007Z",
+      "signingdate": "2019-08-22T06:48:21.98Z",
+      "rejectionreason": null
+    },
+    "id": "ContractStateUpdate637020533435177587",
+    "eventType": "ContractSigned",
+    "subject": "Starling.Installations.InstallationUpdated",
+    "eventTime": "2019-08-22T06:49:03.5179606Z",
+    "dataVersion": "1.0",
+    "metadataVersion": "1",
+    "topic": "/subscriptions/f900bc6c-d5f0-432c-a9ae-d49e0f421de0/resourceGroups/PlicoInstallations/providers/Microsoft.EventGrid/topics/OnContractStatusChanged"
+  }

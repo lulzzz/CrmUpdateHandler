@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.Extensions.Logging;
+using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
@@ -10,10 +11,38 @@ namespace CrmUpdateHandler.Utility
     /// </summary>
     public interface IHubSpotAdapter
     {
-        Task<HubSpotAccessResult> RetrieveHubspotContactById(string contactId, bool fetchPreviousValues);
+        Task<HubSpotContactResult> RetrieveHubspotContactById(string contactId, bool fetchPreviousValues, ILogger log, bool isTest);
 
-        Task<HubSpotAccessResult> RetrieveHubspotContactByEmailAddr(string email, bool fetchPreviousValues);
+        Task<HubSpotContactResult> RetrieveHubspotContactByEmailAddr(string email, bool fetchPreviousValues, ILogger log, bool isTest);
 
-        Task<HubSpotAccessResult> CreateHubspotContactAsync(string email, string firstname, string lastname, string primaryPhone);
+        Task<HubSpotContactResult> CreateHubspotContactAsync(
+            string email,
+            string firstname,
+            string lastname,
+            string preferredName,
+            string primaryPhone,
+            string streetAddress1,
+            string streetAddress2,
+            string city,
+            string state,
+            string postcode,
+            string leadStatus,
+            bool installationRecordExists,
+            ILogger log,
+            bool isTest);
+
+        /// <summary>
+        /// Updates the relevant fields of a HubSpot contact according to the given contract status.
+        /// </summary>
+        /// <param name="email"></param>
+        /// <param name="status"></param>
+        /// <param name="log"></param>
+        /// <param name="isTest"></param>
+        /// <returns></returns>
+        Task<HubSpotContactResult> UpdateContractStatusAsync(
+            string email,
+            string contractStatus,
+            ILogger log,
+            bool isTest);
     }
 }

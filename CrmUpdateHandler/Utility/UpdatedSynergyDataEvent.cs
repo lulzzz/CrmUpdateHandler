@@ -7,7 +7,7 @@ namespace CrmUpdateHandler.Utility
     /// <summary>
     /// This is the wrapper object around an updated Installation data that is sent to event grid
     /// </summary>
-    public class UpdatedSynergyDataEvent : EventGridEvent
+    public class UpdatedSynergyDataEvent : EventGridEventBase
     {
         public UpdatedSynergyDataEvent(string id, string eventType, SynergyAccountData installation)
         {

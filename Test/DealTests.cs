@@ -14,7 +14,7 @@
     /// Test class for Deal creation. A dummy contact is created in the HubSpot sandbox, and various
     /// deals are created against it.
     /// </summary>
-    public class TestDeals : IClassFixture<TestContactCreationFixture>, IClassFixture<EnvironmentSetupFixture>
+    public class DealTests : IClassFixture<TestContactCreationFixture>, IClassFixture<EnvironmentSetupFixture>
     {
         private TestContactCreationFixture contactCreationFixture;
         private EnvironmentSetupFixture environmentSetupFixture;
@@ -24,20 +24,22 @@
         /// before the first test is run, to set the environment variables used by the test
         /// </summary>
         /// <param name="contactCreationFixture"></param>
-        public TestDeals(TestContactCreationFixture contactCreationFixture, EnvironmentSetupFixture environmentSetupFixture)
+        public DealTests(TestContactCreationFixture contactCreationFixture, EnvironmentSetupFixture environmentSetupFixture)
         {
             this.contactCreationFixture = contactCreationFixture;
             this.environmentSetupFixture = environmentSetupFixture;
         }
 
-        [Fact]
+        [Fact(Skip = "not using Deals any more")]
         public async Task Verify_Deal_Creation_Happy_Path()
         {
             var contact = await contactCreationFixture.CreateTestContact();
             var logger = new Mock<ILogger>();
 
+            var adapter = new HubspotAdapter();
+
             // TODO: Update CreateHubSpotDealAsync so it discovers the pipeline ID and the stageID dynamically
-            var dealResponse = await HubspotAdapter.CreateHubSpotDealAsync(
+            var dealResponse = await adapter.CreateHubSpotDealAsync(
                 Convert.ToInt32(contact.contactId),
                 "Automated Integration Test - Delete Me",
                 "706439",   // Sales Pipeline 1 - you can see the ID in the URL

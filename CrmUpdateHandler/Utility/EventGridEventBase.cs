@@ -6,7 +6,7 @@ namespace CrmUpdateHandler.Utility
     /// <summary>
     /// A base class to encapsulate all the common properties of an Azure Event Grid event
     /// </summary>
-    public class EventGridEvent
+    public class EventGridEventBase
     {
         /// <summary>
         /// Gets the boilerplate Event Grid id property
