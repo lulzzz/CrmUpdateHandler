@@ -1,0 +1,70 @@
+﻿{
+  "leadStatus": "Ready To Engage",
+  "contact": {
+    "firstname": "Lucky",
+    "lastname": "Bloke",
+    "email": "LivingFree@example.com",
+    "phone": "0477100024"
+  },
+  "installAddress": {
+    "street": "99 Lucky Pde",
+    "unit": "",
+    "suburb": "Dalkeith",
+    "state": "WA",
+    "postcode": "6009"
+  },
+  "property": {
+    "propertyOwnership": "owner",
+    "propertyType": "residential",
+    "abn": ""
+  },
+  "mortgage": {
+    "mortgageStatus": "no",
+    "bankName": "",
+    "bankOther": ""
+  },
+  "landlordContact": {
+    "contactType": "",
+    "name": "",
+    "email": "",
+    "phone": "",
+    "address": {
+      "street": "",
+      "unit": "",
+      "suburb": "",
+      "state": "",
+      "postcode": ""
+    }
+  },
+  "signatories": {
+    "signer1": {
+      "name": "Lucky Bloke",
+      "email": "LivingFree@example.com",
+      "address": {
+        "street": "99 Lucky Pde",
+        "unit": "",
+        "suburb": "Dalkeith",
+        "state": "WA",
+        "postcode": "6009"
+      }
+    },
+    "signer2": {
+      "name": " ",
+      "email": "",
+      "address": {
+        "street": "",
+        "unit": "",
+        "suburb": "",
+        "state": "",
+        "postcode": ""
+      }
+    }
+  },
+  "battery": {
+    "configuration": "standard",
+    "confirmExtraCost": ""
+  },
+  "acceptance": {
+    "declaration": ""
+  }
+}

@@ -161,7 +161,7 @@ namespace CrmUpdateHandler.Utility
             else if (response.StatusCode == HttpStatusCode.Conflict)
             {
                 // The contact already exists. That's OK - we need to direct this contact to a human for review. 
-                log.LogWarning("Contact already exists: {email}");
+                log.LogWarning($"Contact already exists: {email}");
 
                 // Let's read the whole contact back, then.
                 var actualContact = await RetrieveHubspotContactByEmailAddr(email, false, log, isTest);
@@ -336,7 +336,49 @@ namespace CrmUpdateHandler.Utility
                 log.LogError("Hubspot update failed: {0}: {1}", response.StatusCode, resultText);
                 return new HubSpotContactResult(response.StatusCode, resultText);
             }
+        }
 
+        /// <summary>
+        /// Update arbitrary contact properties
+        /// </summary>
+        /// <param name="vid">the unique HubSpot ID of the Contact</param>
+        /// <param name="props">A HubSpotContactProperties object that specifies all the properties to be changed</param>
+        /// <param name="log"></param>
+        /// <param name="isTest"></param>
+        /// <returns></returns>
+        public async Task<HubSpotContactResult> UpdateContactDetailsAsync(
+            string vid,
+            HubSpotContactProperties props,
+            ILogger log,
+            bool isTest)
+        {
+            // Check that the appropriate Hubspot API key was correctly retrieved in the static constructor
+            var activeHapiKey = isTest ? sandbox_hapikey : hapikey;
+
+            if (string.IsNullOrEmpty(activeHapiKey))
+            {
+                return new HubSpotContactResult(HttpStatusCode.InternalServerError, "Hubspot API key not found");
+            }
+
+            var url = string.Format($"https://api.hubapi.com/contacts/v1/contact/vid/{vid}/profile?hapikey={activeHapiKey}");
+
+            log.LogInformation($"Updating {vid} details");
+            HttpResponseMessage response = await httpClient.PostAsJsonAsync(url, props);
+
+            // Check Status Code. 
+            if (response.StatusCode == HttpStatusCode.NoContent)
+            {
+                log.LogInformation("Hubspot status update OK");
+                var retval = new HubSpotContactResult(HttpStatusCode.OK);
+                return retval;
+            }
+            else
+            {
+                // Some kind of error - return the status code and body to the caller of the function
+                string resultText = await response.Content.ReadAsStringAsync();
+                log.LogError("Hubspot update failed: {0}: {1}", response.StatusCode, resultText);
+                return new HubSpotContactResult(response.StatusCode, resultText);
+            }
         }
 
         /// <summary>
@@ -623,11 +665,11 @@ namespace CrmUpdateHandler.Utility
         }
 
         /// <summary>
-        /// Calculates a customer address from separate street, city, postcoe, etc fields
+        /// Calculates a customer address from separate street, city, postcode, etc fields
         /// </summary>
         /// <param name="properties"></param>
         /// <returns></returns>
-        /// <remarks>This may need to become more sophisticated overtime</remarks>
+        /// <remarks>This may need to become more sophisticated over time</remarks>
         internal static string AssembleCustomerAddress(dynamic properties, bool usePrevious = false)
         {
             if (properties == null)

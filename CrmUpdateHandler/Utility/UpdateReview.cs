@@ -10,7 +10,7 @@ namespace CrmUpdateHandler.Utility
     public class UpdateReview
     {
         public UpdateReview(string email,
-            string requestBody)
+            dynamic requestBody)
         {
             this.Email = email;
             this.RequestBody = requestBody;
@@ -21,7 +21,7 @@ namespace CrmUpdateHandler.Utility
 
         public List<UpdateReviewChange> Changes { get; private set; }
 
-        public string RequestBody { get; private set; }
+        public object RequestBody { get; private set; }
 
         public void AddChange(string field, string oldValue, string newValue)
         {

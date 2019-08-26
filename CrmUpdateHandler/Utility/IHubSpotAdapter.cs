@@ -44,5 +44,11 @@ namespace CrmUpdateHandler.Utility
             string contractStatus,
             ILogger log,
             bool isTest);
+
+        Task<HubSpotContactResult> UpdateContactDetailsAsync(
+            string vid,
+            HubSpotContactProperties props,
+            ILogger log,
+            bool isTest);
     }
 }

@@ -55,59 +55,6 @@ namespace Test
 
 
 
-        [Fact]
-        public async Task verify_that_contact_creation_inserts_installation_on_queue()
-        {
-            var updateReviewQ = new Mock<IAsyncCollector<string>>();
-
-            var hubspotAdapter = new Mock<IHubSpotAdapter>();   // See note below; I'd rather mock the HttpClient and use a real HubSpotAdapter here. 
-
-            var data = new CanonicalContact("012345")
-            {
-                email = "aa.Postman@ksc.net.au",
-                firstName = "aa",
-                lastName = "Postman",
-                phone = "867 5309"
-            };
-
-            var desiredResult = new HubSpotContactResult(data);
-
-            // Set up a retval that the mock HubSpotAdapter might return
-            hubspotAdapter.Setup(p => p.CreateHubspotContactAsync(
-                    It.IsAny<string>(),
-                    It.IsAny<string>(),
-                    It.IsAny<string>(),
-                    It.IsAny<string>(),
-                    It.IsAny<string>(),
-                    It.IsAny<string>(),
-                    It.IsAny<string>(),
-                    It.IsAny<string>(),
-                    It.IsAny<string>(),
-                    It.IsAny<string>(),
-                    It.IsAny<string>(),
-                    It.IsAny<bool>(),
-                    It.IsAny<ILogger>(),
-                    It.IsAny<bool>()))
-                .ReturnsAsync(desiredResult);
-
-            // Load in the JSON body of a typical create-crm request
-            var filePath = @".\\TestData\\NewContactBody.txt";
-            var body = File.ReadAllText(filePath, Encoding.UTF8);
-            var query = new Dictionary<string, StringValues>(); // If we want to test query params, put them here.
-            //query.Add("messageId", "ABC123");
-            var simulatedHttpRequest = this.HttpRequestSetup(query, body);
-
-            var contactCreator = new CrmContactCreator(hubspotAdapter.Object);
-
-            // Create the contact, with a mock error queue
-            var result = await contactCreator.CreateNewContact(simulatedHttpRequest, _errorQueue, updateReviewQ.Object, _installationQueue, _logger);
-
-            // TODO: Review these tests in the light of the new dependency-injection capabilities. 
-
-            Assert.IsType<OkObjectResult>(result);
-            Assert.Single(_installationQueue.Items);
-        }
-
 
         /// <summary>
         /// This test relies on an environment variable called 'hapikey' being correctly set. It's in 

@@ -31,7 +31,6 @@ namespace CrmUpdateHandler.Utility
             string phone,
             string email,
             string customerAddress,
-            //string jobTitle,
             string leadStatus,
             bool installationRecordExists)
             :this(vid)
@@ -47,8 +46,6 @@ namespace CrmUpdateHandler.Utility
             this.email = email;
 
             this.customerAddress = customerAddress;
-
-            //this.jobTitle = jobTitle;
 
             this.leadStatus = leadStatus;
 

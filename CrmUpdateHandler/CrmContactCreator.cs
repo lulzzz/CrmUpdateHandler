@@ -13,6 +13,7 @@ namespace CrmUpdateHandler
     using Newtonsoft.Json;
     using System.Net.Http;
     using CrmUpdateHandler.Utility;
+    using System.Collections.Generic;
 
     /// <summary>
     /// Entry point that allows external applications to create a new contact in the CRM, and an Installation, and send a contract
@@ -113,6 +114,11 @@ namespace CrmUpdateHandler
             string email = userdata?.contact?.email;
             string phone = userdata?.contact?.phone;
 
+            if (string.IsNullOrEmpty(phone))
+            {
+                phone = userdata?.contact?.mobilephone;
+            }
+
             string installStreetAddress1 = userdata?.installAddress?.street;
             string installStreetAddress2 = userdata?.installAddress?.unit;
             string installCity = userdata?.installAddress?.suburb;
@@ -161,12 +167,46 @@ namespace CrmUpdateHandler
                 // This is not unexpected. We can't blindly overwrite existing contact details when we don't know anything about the intentions
                 // of the caller. So we add the whole packet to a queue for review and approval by a human (using Approvals in Flow)
                 var orig = crmAccessResult.Payload;
-                var updateReview = new UpdateReview(email, requestBody);
-                updateReview.AddChange("First", orig.firstName, firstname);
-                updateReview.AddChange("Last", orig.lastName, lastname);
-                updateReview.AddChange("Phone", orig.phone, phone);
-                // TODO: more...
-                await updateReviewQueue.AddAsync(JsonConvert.SerializeObject(updateReview));
+                var changeList = new List<UpdateReviewChange>();
+                //var updateReview = new UpdateReview(email, userdata);
+                changeList.Add(new UpdateReviewChange("First", orig.firstName, firstname??""));
+                changeList.Add(new UpdateReviewChange("Last", orig.lastName, lastname??""));
+                changeList.Add(new UpdateReviewChange("Phone", orig.phone, phone??""));
+                changeList.Add(new UpdateReviewChange("Lead status", orig.leadStatus, leadStatus));
+
+                var customerAddress = HubspotAdapter.AssembleCustomerAddress(
+                    (customerStreetAddress1 + " " + customerStreetAddress2).Trim(),
+                    customerCity,
+                    customerState,
+                    customerPostcode);
+                changeList.Add(new UpdateReviewChange("Customer Address", orig.customerAddress, customerAddress));
+
+                var installAddress = HubspotAdapter.AssembleCustomerAddress(
+                    (installStreetAddress1 + " " + installStreetAddress2).Trim(),
+                    installCity,
+                    installState,
+                    installPostcode);
+
+                // TODO: more...including Installation fields...
+                changeList.Add(new UpdateReviewChange("Install Address", "", installAddress));  // TODO
+                changeList.Add(new UpdateReviewChange("propertyOwnership", "", propertyOwnership));  // TODO
+                changeList.Add(new UpdateReviewChange("propertyType", "", propertyType));  // TODO
+                changeList.Add(new UpdateReviewChange("ABN", "", abn));  // TODO
+
+                changeList.Add(new UpdateReviewChange("mortgageStatus", "", mortgageStatus));  // TODO
+
+                var newBankName = (bankName == "Other") ? bankOther : bankName;
+                changeList.Add(new UpdateReviewChange("bankName", "", newBankName));  // TODO
+
+                userdata.changes = Newtonsoft.Json.Linq.JToken.FromObject(changeList);
+
+                // Prepare the 'Join' data for re-use as an Installation
+                userdata.contact.crmid = crmAccessResult.Payload.contactId;
+                userdata.sendContract = true;
+
+                string updateReviewPackage = JsonConvert.SerializeObject(userdata);
+                log.LogInformation("temp: this is what we're putting on the queue:\n" + updateReviewPackage);
+                await updateReviewQueue.AddAsync(updateReviewPackage);
                 return (ActionResult)new OkResult();
 
             }
