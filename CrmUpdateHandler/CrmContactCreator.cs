@@ -164,22 +164,40 @@ namespace CrmUpdateHandler
             // Some failures aren't really failures
             if (crmAccessResult.StatusCode == System.Net.HttpStatusCode.Conflict)
             {
-                // This is not unexpected. We can't blindly overwrite existing contact details when we don't know anything about the intentions
-                // of the caller. So we add the whole packet to a queue for review and approval by a human (using Approvals in Flow)
-                var orig = crmAccessResult.Payload;
-                var changeList = new List<UpdateReviewChange>();
-                //var updateReview = new UpdateReview(email, userdata);
-                changeList.Add(new UpdateReviewChange("First", orig.firstName, firstname??""));
-                changeList.Add(new UpdateReviewChange("Last", orig.lastName, lastname??""));
-                changeList.Add(new UpdateReviewChange("Phone", orig.phone, phone??""));
-                changeList.Add(new UpdateReviewChange("Lead status", orig.leadStatus, leadStatus));
+                // A Conflict is not unexpected. However, we can't blindly overwrite existing contact details when we don't know anything 
+                // about the intentions of the caller. The changes must be Approved by a human.
+                // To facilitate the Approval process, we take the original data packet (which has enough information for both a HubSpot
+                // contact and an Installation record) and supplement it with a list of changes, which the Approval flow can use to present
+                // a nice(ish) UI to the approver. After approval, the packet can then continue to flow (via queues) to process that create
+                // installations and effect changes to hubspot contacts
 
-                var customerAddress = HubspotAdapter.AssembleCustomerAddress(
-                    (customerStreetAddress1 + " " + customerStreetAddress2).Trim(),
-                    customerCity,
-                    customerState,
-                    customerPostcode);
-                changeList.Add(new UpdateReviewChange("Customer Address", orig.customerAddress, customerAddress));
+                var orig = crmAccessResult.Payload;
+                //var changeList = new List<UpdateReviewChange>();
+
+                // The changelist must serialise to 'nice' JSON. No nulls, else Flow can't parse it.
+                var updateReview = new UpdateReview();
+                updateReview.AddChange("First", orig.firstName??"", firstname??"");
+                updateReview.AddChange("Last", orig.lastName??"", lastname??"");
+                updateReview.AddChange("Phone", orig.phone??"", phone ?? "");
+                updateReview.AddChange("Street Address", orig.streetAddress ?? "", (customerStreetAddress1 + " " + customerStreetAddress2).Trim());
+                updateReview.AddChange("City", orig.city ?? "", customerCity ?? "");
+                updateReview.AddChange("State", orig.state ?? "", customerState ?? "");
+                updateReview.AddChange("Postcode", orig.postcode ?? "", customerPostcode ?? "");
+
+                var newLeadStatus = HubspotAdapter.ResolveLeadStatus(leadStatus);
+                updateReview.AddChange("Lead status", orig.leadStatus, newLeadStatus);
+
+                // Mimic the installation-inhib logic in the original contact-creation code.
+                if (newLeadStatus == "READY_TO_ENGAGE")
+                {
+                    if (orig.leadStatus == "INTERESTED")
+                    {
+                        // We need to inhibit the creation of an Installation record if this approval goes ahead, to prevent a race condition
+                        updateReview.AddChange("installationrecordexists", "", "true");
+                    }
+                }
+
+                // TODO: Call an installation-details web-service to get these details
 
                 var installAddress = HubspotAdapter.AssembleCustomerAddress(
                     (installStreetAddress1 + " " + installStreetAddress2).Trim(),
@@ -188,25 +206,27 @@ namespace CrmUpdateHandler
                     installPostcode);
 
                 // TODO: more...including Installation fields...
-                changeList.Add(new UpdateReviewChange("Install Address", "", installAddress));  // TODO
-                changeList.Add(new UpdateReviewChange("propertyOwnership", "", propertyOwnership));  // TODO
-                changeList.Add(new UpdateReviewChange("propertyType", "", propertyType));  // TODO
-                changeList.Add(new UpdateReviewChange("ABN", "", abn));  // TODO
+                updateReview.AddChange("Install Address", "", installAddress ?? "");  // TODO
+                updateReview.AddChange("propertyOwnership", "", propertyOwnership ?? "");  // TODO
+                updateReview.AddChange("propertyType", "", propertyType ?? "");  // TODO
+                updateReview.AddChange("ABN", "", abn ?? "");  // TODO
 
-                changeList.Add(new UpdateReviewChange("mortgageStatus", "", mortgageStatus));  // TODO
+                updateReview.AddChange("mortgageStatus", "", mortgageStatus ?? "");  // TODO
 
                 var newBankName = (bankName == "Other") ? bankOther : bankName;
-                changeList.Add(new UpdateReviewChange("bankName", "", newBankName));  // TODO
+                updateReview.AddChange("bankName", "", newBankName ?? "");  // TODO
 
-                userdata.changes = Newtonsoft.Json.Linq.JToken.FromObject(changeList);
+                userdata.changes = Newtonsoft.Json.Linq.JToken.FromObject(updateReview.Changes);
 
-                // Prepare the 'Join' data for re-use as an Installation
+                // Prepare the original 'Join' data packet for re-use as an Installation
                 userdata.contact.crmid = crmAccessResult.Payload.contactId;
                 userdata.sendContract = true;
 
                 string updateReviewPackage = JsonConvert.SerializeObject(userdata);
                 log.LogInformation("temp: this is what we're putting on the queue:\n" + updateReviewPackage);
                 await updateReviewQueue.AddAsync(updateReviewPackage);
+
+                // Control now passes to the Flow called on contact-update-review message, where the changes are approved or rejected
                 return (ActionResult)new OkResult();
 
             }

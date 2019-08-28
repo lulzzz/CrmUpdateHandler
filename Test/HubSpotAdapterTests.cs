@@ -1,4 +1,5 @@
-﻿using CrmUpdateHandler.Utility;
+﻿using CrmUpdateHandler;
+using CrmUpdateHandler.Utility;
 using System;
 using System.Collections.Generic;
 using System.Net;
@@ -91,6 +92,26 @@ namespace Test
             var response = await adapter.UpdateContractStatusAsync("bogus_email@example.com", "Sent", _logger, isTest: true);
 
             Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        }
+
+        [Fact]
+        public async Task verify_we_can_update_a_regular_property()
+        {
+            var contact = await _contactCreationFixture.CreateTestContact();
+
+            var adapter = new HubspotAdapter();
+            var props = new HubSpotContactProperties();
+            props.Add("mobilephone", "0499888777");
+            props.Add("city", "Update City");
+            var response = await adapter.UpdateContactDetailsAsync(_contactCreationFixture.TestContactId, props, _logger, isTest: true);
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+            response = await adapter.RetrieveHubspotContactById(_contactCreationFixture.TestContactId, false, _logger, isTest: true);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+            contact = response.Payload;
+            Assert.Equal("Update City", contact.city);
         }
     }
 }

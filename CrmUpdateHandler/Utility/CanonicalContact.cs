@@ -30,6 +30,10 @@ namespace CrmUpdateHandler.Utility
             string preferredName,
             string phone,
             string email,
+            string streetAddress,
+            string city,
+            string state,
+            string postcode,
             string customerAddress,
             string leadStatus,
             bool installationRecordExists)
@@ -44,6 +48,11 @@ namespace CrmUpdateHandler.Utility
             this.phone = phone;
 
             this.email = email;
+
+            this.streetAddress = streetAddress;
+            this.city = city;
+            this.state = state;
+            this.postcode = postcode;
 
             this.customerAddress = customerAddress;
 
@@ -85,11 +94,20 @@ namespace CrmUpdateHandler.Utility
         public string email { get; set; }
         public string oldEmail { get; set; }
 
+        public string streetAddress { get; set; }
+        public string oldStreetAddress { get; set; }
+
+        public string city { get; set; }
+        public string oldCity { get; set; }
+
+        public string state { get; set; }
+        public string oldState { get; set; }
+
+        public string postcode { get; set; }
+        public string oldPostcode { get; set; }
+
         public string customerAddress { get; set; }
         public string oldcustomerAddress { get; set; }
-
-        public string jobTitle { get; set; }
-        public string oldJobTitle { get; set; }
 
         /// <summary>
         /// This governs whether an Installations record is created or not.

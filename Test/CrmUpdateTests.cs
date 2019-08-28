@@ -9,6 +9,8 @@ using System.Threading.Tasks;
 using CrmUpdateHandler.Utility;
 using CrmUpdateHandler;
 using Newtonsoft.Json;
+using Microsoft.Extensions.Logging;
+using System.Net;
 
 namespace Test
 {
@@ -134,7 +136,15 @@ namespace Test
         {
             var mockAdapter = new Mock<IHubSpotAdapter>();
 
-            var json_no_crmid = "{ \"crmid\": \"012345\", \"changes\": [{\"name\": \"prop1\", \"value\": \"val1\"},{\"name\": \"prop2\", \"value\": \"val2\"}] }";
+            var desiredResult = new HubSpotContactResult(HttpStatusCode.OK);
+
+            mockAdapter.Setup(p => p.UpdateContactDetailsAsync(
+                "012345", 
+                It.IsAny<HubSpotContactProperties>(),                    
+                It.IsAny<ILogger>(),                    
+                It.IsAny<bool>())).ReturnsAsync(desiredResult);
+
+            var json_no_crmid = "{ \"crmid\": \"012345\", \"changes\": [{\"name\": \"Street Address\", \"value\": \"18 Example Place\"},{\"name\": \"Phone\", \"value\": \"0451443455\"}] }";
 
             var func = new DequeueContactDiffs(mockAdapter.Object);
             await func.Run(json_no_crmid, _errorQueue, _logger);

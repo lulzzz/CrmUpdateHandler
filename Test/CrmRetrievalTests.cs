@@ -109,7 +109,7 @@ namespace Test
 
 
         [Fact(Skip ="Not a real test")]
-        public async Task newContact_Tester()
+        public void newContact_Tester()
         {
             var newContactProperties = HubspotAdapter.AssembleContactProperties(
                 "email@example.com", 

@@ -52,8 +52,11 @@ namespace CrmUpdateHandler.Utility
             this.preferredName = hubspotContact.preferredName;
             this.phone = hubspotContact.phone;
             this.email = hubspotContact.email;
+            this.streetAddress = hubspotContact.streetAddress;
+            this.city = hubspotContact.city;
+            this.state = hubspotContact.state;
+            this.postcode = hubspotContact.postcode;
             this.customerAddress = hubspotContact.customerAddress;
-            this.jobTitle = hubspotContact.jobTitle;
             this.leadStatus = hubspotContact.leadStatus;
 
             this.installationRecordExists = hubspotContact.installationRecordExists;
@@ -88,7 +91,13 @@ namespace CrmUpdateHandler.Utility
 
         public string email { get; private set; }
 
-        public string jobTitle { get; set; }
+        public string streetAddress { get; private set; }
+
+        public string city { get; private set; }
+
+        public string state { get; private set; }
+
+        public string postcode { get; private set; }
 
         public string leadStatus { get; set; }
 

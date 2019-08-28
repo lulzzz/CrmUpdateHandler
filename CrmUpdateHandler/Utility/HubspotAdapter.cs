@@ -495,7 +495,7 @@ namespace CrmUpdateHandler.Utility
         /// </summary>
         /// <param name="leadStatus"></param>
         /// <returns></returns>
-        private static string ResolveLeadStatus(string leadStatus)
+        public static string ResolveLeadStatus(string leadStatus)
         {
             // Make sure we don't barf on a null
             if (string.IsNullOrEmpty(leadStatus))
@@ -589,19 +589,26 @@ namespace CrmUpdateHandler.Utility
             string preferredName = contact.properties.preferred_name?.value;
             string phone = contact.properties.phone?.value;
             string email = contact.properties.email?.value;
+            string streetAddress = contact.properties.address?.value;
+            string city = contact.properties.city?.value;
+            string state = contact.properties.state?.value;
+            string postcode = contact.properties.zip?.value;
             string customerAddress = AssembleCustomerAddress(contact.properties);
-            string jobTitle = contact.properties.jobtitle?.value;
             string leadStatus = contact.properties.hs_lead_status?.value;
             string installationrecordString = contact.properties.installationrecordexists?.value ?? "false";   // raw values are null, "false", "true" and ""
             bool installationrecordExists = (installationrecordString == "true");
 
+            // Default the previous values to the current values
             var oldFirstName = firstName;
             var oldLastName = lastName;
             var oldPreferredName = preferredName;
             var oldPhone = phone;
             var oldEmail = email;
+            var oldStreetAddress = streetAddress;
+            var oldCity = city;
+            var oldState = state;
+            var oldPostcode = postcode;
             var oldCustomerAddress = customerAddress;
-            var oldJobTitle = jobTitle;
             var oldLeadStatus = leadStatus;
 
 
@@ -614,8 +621,11 @@ namespace CrmUpdateHandler.Utility
                 oldPreferredName = GetPreviousValue(contact.properties.preferred_name);
                 oldPhone = GetPreviousValue(contact.properties.phone);
                 oldEmail = GetPreviousValue(contact.properties.email);
+                oldStreetAddress = GetPreviousValue(contact.properties.address);
+                oldCity = GetPreviousValue(contact.properties.city);
+                oldState = GetPreviousValue(contact.properties.state);
+                oldPostcode = GetPreviousValue(contact.properties.zip);
                 oldCustomerAddress = AssembleCustomerAddress(contact.properties, true);
-                oldJobTitle = GetPreviousValue(contact.properties.jobtitle);
                 oldLeadStatus = GetPreviousValue(contact.properties.hs_lead_status);
             }
 
@@ -628,6 +638,10 @@ namespace CrmUpdateHandler.Utility
                 preferredName,
                 phone,
                 email,
+                streetAddress,
+                city,
+                state,
+                postcode,
                 customerAddress,
                 leadStatus, 
                 installationrecordExists)
@@ -637,10 +651,11 @@ namespace CrmUpdateHandler.Utility
                 oldPreferredName = oldPreferredName,
                 oldPhone = oldPhone,
                 oldEmail = oldEmail,
+                oldStreetAddress = oldStreetAddress,
+                oldCity = oldCity,
+                oldState = oldState,
+                oldPostcode = oldPostcode,
                 oldcustomerAddress = oldCustomerAddress,
-
-                jobTitle = jobTitle,
-                oldJobTitle = oldJobTitle,
 
                 oldLeadStatus = oldLeadStatus,
 

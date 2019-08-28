@@ -9,36 +9,35 @@ namespace CrmUpdateHandler.Utility
     /// </summary>
     public class UpdateReview
     {
-        public UpdateReview(string email,
-            dynamic requestBody)
+        public UpdateReview()
         {
-            this.Email = email;
-            this.RequestBody = requestBody;
             this.Changes = new List<UpdateReviewChange>();
         }
 
-        public string Email { get; private set; }
-
         public List<UpdateReviewChange> Changes { get; private set; }
 
-        public object RequestBody { get; private set; }
-
-        public void AddChange(string field, string oldValue, string newValue)
+        public void AddChange(string friendlyName, string oldValue, string newValue)
         {
-            this.Changes.Add(new UpdateReviewChange(field, oldValue, newValue));
+            if (oldValue == newValue) return;
+
+            this.Changes.Add(new UpdateReviewChange(friendlyName, oldValue, newValue));
         }
     }
 
     public class UpdateReviewChange
     {
-        public UpdateReviewChange(string fieldName, string currentValue, string newValue)
+        public UpdateReviewChange(string friendlyName, string currentValue, string newValue)
         {
-            this.Fieldname = fieldName;
+            this.Fieldname = friendlyName;
             this.Current = currentValue;
             this.New = newValue;
         }
 
+        /// <summary>
+        /// Gets the nme of the field, as displayed to the approver in an email
+        /// </summary>
         public string Fieldname { get; private set; }
+
         public string Current { get; private set; }
         public string New { get; private set; }
     }
