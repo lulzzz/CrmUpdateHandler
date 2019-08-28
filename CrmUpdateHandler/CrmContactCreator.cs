@@ -218,12 +218,18 @@ namespace CrmUpdateHandler
 
                 userdata.changes = Newtonsoft.Json.Linq.JToken.FromObject(updateReview.Changes);
 
-                // Prepare the original 'Join' data packet for re-use as an Installation
+                // Prepare the original 'Join' data packet for re-use as an Installation if a 
+                // human approves the changes. And set an 'updatePermitted' flag that signals
+                // to the receiving process that the data has been through a human review, and
+                // it's OK to update the Installation if it exists already.
                 userdata.contact.crmid = crmAccessResult.Payload.contactId;
                 userdata.sendContract = true;
+                userdata.updatePermitted = true;    // if it passes human approval, then it's OK to update the Installation
 
                 string updateReviewPackage = JsonConvert.SerializeObject(userdata);
-                log.LogInformation("temp: this is what we're putting on the queue:\n" + updateReviewPackage);
+                log.LogInformation("For the 'existing-contact-update-review' queue:\n" + updateReviewPackage);
+
+                // Queue the submission for human approval
                 await updateReviewQueue.AddAsync(updateReviewPackage);
 
                 // Control now passes to the Flow called on contact-update-review message, where the changes are approved or rejected
@@ -245,6 +251,8 @@ namespace CrmUpdateHandler
             // The structure we place on this queue is the same structure as we receive in this method, with the addition of 
             //      (1) the contract.crmid property
             //      (2) a 'sendContract' flag that tells the Installation-creator to send a contract when the Installation record is created
+            // NB: 'updatePermitted' is NOT set, because it would be a big surprise worthy of a big error to find an existing 
+            // Installation in the absence of a HubSpot contact record
             userdata.contact.crmid = crmAccessResult.Payload.contactId;
             userdata.sendContract = true;
 
