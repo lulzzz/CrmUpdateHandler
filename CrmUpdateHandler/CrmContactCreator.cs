@@ -185,7 +185,7 @@ namespace CrmUpdateHandler
                 updateReview.AddChange("Postcode", orig.postcode ?? "", customerPostcode ?? "");
 
                 var newLeadStatus = HubspotAdapter.ResolveLeadStatus(leadStatus);
-                updateReview.AddChange("Lead status", orig.leadStatus, newLeadStatus);
+                updateReview.AddChange("Lead status", orig.leadStatus ?? "", newLeadStatus ??"");
 
                 // Mimic the installation-inhib logic in the original contact-creation code.
                 if (newLeadStatus == "READY_TO_ENGAGE")

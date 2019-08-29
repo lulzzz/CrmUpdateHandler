@@ -308,7 +308,7 @@ namespace CrmUpdateHandler.Utility
 
             if (hubSpotContactResult.StatusCode != HttpStatusCode.OK)
             {
-                log.LogInformation("Error retrieving HubSpot details for '" + email + "'");
+                log.LogInformation($"Error {hubSpotContactResult.StatusCode} retrieving HubSpot details for '{email}': {hubSpotContactResult.ErrorMessage}");
                 return hubSpotContactResult;
             }
 
@@ -334,7 +334,7 @@ namespace CrmUpdateHandler.Utility
                 // Some kind of error - return the status code and body to the caller of the function
                 string resultText = await response.Content.ReadAsStringAsync();
                 log.LogError("Hubspot update failed: {0}: {1}", response.StatusCode, resultText);
-                return new HubSpotContactResult(response.StatusCode, resultText);
+                return new HubSpotContactResult(response.StatusCode, string.Format($"Error {response.StatusCode}: '{resultText}'"));
             }
         }
 
@@ -558,7 +558,7 @@ namespace CrmUpdateHandler.Utility
             else if (response.StatusCode == HttpStatusCode.NotFound)
             {
                 // NotFound error
-                return new HubSpotContactResult(response.StatusCode);
+                return new HubSpotContactResult(response.StatusCode, response.ReasonPhrase);
             }
             else
             {

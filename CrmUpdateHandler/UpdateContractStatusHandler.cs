@@ -44,11 +44,11 @@ namespace CrmUpdateHandler
         ///    aeg-event-type: Notification
         /// 
         /// To wire up as an event subscriber, set the webhook as
-        /// https://CrmUpdateHandler.azurewebsites.net/runtime/webhooks/eventgrid?functionName=UpdateContractStatusHandler&code={systemkey}
+        /// https://CrmUpdateHandler.azurewebsites.net/runtime/webhooks/eventgrid?functionName=UpdateHubSpotContractStatus&code={systemkey}
         /// There was a host key named "eventgrid_extension" there, I used that. 
         /// </remarks>
         [StorageAccount("AzureWebJobsStorage")]
-        [FunctionName("UpdateContractStatusHandler")]
+        [FunctionName("UpdateHubSpotContractStatus")]
         public async Task Run([EventGridTrigger]EventGridEvent eventGridEvent,
             [Queue("error-notification")] IAsyncCollector<string> errors,
             ILogger log)
@@ -127,7 +127,7 @@ namespace CrmUpdateHandler
                 if (contactUpdateResult.StatusCode != System.Net.HttpStatusCode.OK)
                 {
                     log.LogError("Error updating contract state for '" + contractStatusNotification.CustomerEmail + "': " + contactUpdateResult.ErrorMessage);
-                    errQ.LogError("Error updating contract state for '" + contractStatusNotification.CustomerEmail + "': " + contactUpdateResult.ErrorMessage);
+                    errQ.LogError($"Error updating contract state for {contractStatusNotification.CustomerEmail}' (installation {contractStatusNotification.InstallationId}): {contactUpdateResult.ErrorMessage}");
                 }
             }
             catch (Exception ex)
