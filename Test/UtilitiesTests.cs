@@ -5,7 +5,7 @@ using Xunit;
 
 namespace Test
 {
-    public class UtilitiesTest
+    public class UtilitiesTests
     {
         [Fact]
         public void NewContactPayload_ZeroPads_Vid()

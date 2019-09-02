@@ -14,7 +14,7 @@ using System.Threading.Tasks;
 namespace CrmUpdateHandler
 {
     /// <summary>
-    /// A Event Grid subscriber for the OnContractStatusChanged event
+    /// A class to hold functions that update the Contract Status in HubSpot, potentially via various entry points
     /// </summary>
     /// <see cref="https://docs.microsoft.com/en-us/azure/azure-functions/functions-bindings-event-grid"/>
     public class UpdateContractStatusHandler
@@ -22,7 +22,7 @@ namespace CrmUpdateHandler
         private IHubSpotAdapter _hubSpotAdapter;
 
         /// <summary>
-        /// Constructor obtains a HubSpot adaptor by dependency injection from the framework, or from a unit test.
+        /// Constructor obtains a HubSpot Adaptor by dependency injection from the framework, or from a unit test.
         /// </summary>
         /// <param name="injectedHubSpotAdapter"></param>
         public UpdateContractStatusHandler(IHubSpotAdapter injectedHubSpotAdapter)
@@ -31,7 +31,7 @@ namespace CrmUpdateHandler
         }
 
         /// <summary>
-        /// And Event-triggered function that updates the Contract Status fields in HubSpot for the given email
+        /// An Event-triggered function that subscribes to the OnContractStatusChanged topic. It updates the Contract Status fields in HubSpot for the given email
         /// </summary>
         /// <param name="eventGridEvent"></param>
         /// <param name="errors"></param>
@@ -75,7 +75,7 @@ namespace CrmUpdateHandler
             try
             {
                 where = "deserializing Event Grid notification structure";
-                var contractStatusNotification = JsonConvert.DeserializeObject<ContractStatusNotification>(eventGridEvent.Data.ToString());
+                var contractStatusNotification = JsonConvert.DeserializeObject<CustomerContractData>(eventGridEvent.Data.ToString());
 
                 if (contractStatusNotification == null)
                 {
@@ -113,6 +113,9 @@ namespace CrmUpdateHandler
                         {
                             log.LogWarning("Rejection reason was missing for installation " + contractStatusNotification.InstallationId);
                         }
+                        break;
+                    case "ContractForwarded":
+                        // TODO: Handle this
                         break;
                     default:
                         // If somebody introduces a new contract state, we'll know about it soon enough.

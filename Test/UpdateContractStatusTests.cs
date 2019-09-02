@@ -17,7 +17,7 @@ using Xunit;
 namespace Test
 {
     /// <summary>
-    /// Exercise and verify our ability to update the Contract-related proprties in HubSpot
+    /// Exercise and verify our ability to update the Contract-related properties in HubSpot
     /// </summary>
     public class UpdateContractStatusTests : IClassFixture<EnvironmentSetupFixture>
     {
